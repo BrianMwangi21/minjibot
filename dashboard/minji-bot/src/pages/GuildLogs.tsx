@@ -119,7 +119,7 @@ export default function GuildLogs() {
             <ArrowLeft className="mr-1 size-4" />
             Back to guilds
           </Link>
-          <div className="flex items-center justify-between gap-4">
+<div className="flex items-center justify-between gap-4">
             <div>
               <h1 className="mb-1 font-heading text-3xl font-bold tracking-tight text-foreground">
                 Logs

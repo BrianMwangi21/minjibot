@@ -58,7 +58,7 @@ type guildSummary struct {
 // listGuilds returns every guild the bot knows about plus per-guild counts of
 // deleted messages and moderation actions, so the dashboard can offer a picker.
 func (h *logHandlers) listGuilds(c *echo.Context) error {
-	if _, ok := h.requireAdmin(c); !ok {
+if _, ok := h.requireAdmin(c); !ok {
 		return nil
 	}
 	ctx := c.Request().Context()
@@ -86,7 +86,7 @@ func (h *logHandlers) listGuilds(c *echo.Context) error {
 // listDeletedMessages returns deleted messages for a guild (required query
 // param guild_id), newest first.
 func (h *logHandlers) listDeletedMessages(c *echo.Context) error {
-	if _, ok := h.requireAdmin(c); !ok {
+if _, ok := h.requireAdmin(c); !ok {
 		return nil
 	}
 	ctx := c.Request().Context()
@@ -118,7 +118,7 @@ func (h *logHandlers) listDeletedMessages(c *echo.Context) error {
 // listModActions returns moderation actions (audit logs) for a guild (required
 // query param guild_id), newest first, excluding message-created noise.
 func (h *logHandlers) listModActions(c *echo.Context) error {
-	if _, ok := h.requireAdmin(c); !ok {
+if _, ok := h.requireAdmin(c); !ok {
 		return nil
 	}
 	ctx := c.Request().Context()

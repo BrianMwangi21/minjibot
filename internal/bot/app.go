@@ -130,6 +130,13 @@ func (a *App) RegisterHandlers() {
 		}
 	})
 
+	// Guild create handler — record the guild the moment the bot joins it so
+	// the dashboard picker shows new servers immediately.
+	handlers.RegisterGuildHandler(a.Session, handlers.GuildHandlerDeps{
+		Logger:    a.Logger,
+		GuildRepo: a.GuildRepo,
+	})
+
 	// Message handler
 	handlers.RegisterMessageHandler(a.Session, handlers.MessageHandlerDeps{
 		Logger:       a.Logger,

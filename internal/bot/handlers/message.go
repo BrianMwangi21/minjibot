@@ -66,18 +66,10 @@ func onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate, deps Mess
 		}
 	}
 
-	// Ensure guild exists in DB
-	guild, err := deps.GuildRepo.GetByID(ctx, m.GuildID)
-	if err != nil {
-		guild, err = deps.GuildRepo.Create(ctx, dto.CreateGuildParams{
-			ID:          m.GuildID,
-			Name:        "",
-			PremiumTier: 0,
-		})
-		if err != nil {
-			deps.Logger.Error("Failed to create guild", "error", err, "guild_id", m.GuildID)
-			return
-		}
+	// Ensure the guild row exists so the dashboard guild picker sees this
+	// server immediately.
+	if err := ensureGuildRecord(ctx, deps.GuildRepo, deps.Logger, m.GuildID, "", 0); err != nil {
+		return
 	}
 
 	// Log the message content only when the guild has explicitly opted in.
@@ -85,19 +77,17 @@ func onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate, deps Mess
 	// left unbounded, both bloats the audit table and is a privacy liability.
 	// Guilds that enable it are pruned by the retention job (see bot.App).
 	if sErr == nil && settings.MessageLoggingEnabled {
-		_, err = deps.AuditRepo.Create(ctx, dto.CreateAuditLogParams{
+		if _, err := deps.AuditRepo.Create(ctx, dto.CreateAuditLogParams{
 			GuildID:  m.GuildID,
 			Action:   "MESSAGE_CREATE",
 			ActorID:  m.Author.ID,
 			TargetID: m.ChannelID,
 			Metadata: []byte(fmt.Sprintf(`{"message_id":%q,"content":%q,"channel_id":%q}`, m.ID, m.Content, m.ChannelID)),
-		})
-		if err != nil {
+		}); err != nil {
 			deps.Logger.Error("Failed to create audit log", "error", err)
 		}
 	}
 
-	_ = guild
 	_ = settings
 
 	// Check for command

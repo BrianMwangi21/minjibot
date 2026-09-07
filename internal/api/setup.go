@@ -75,6 +75,17 @@ func (h *setupHandlers) runSetup(c *echo.Context) error {
 		return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "bot not connected"})
 	}
 
+	// Pre-flight: refuse to provision a server that already looks live. Setup
+	// documents create roles, channels, and settings; replaying one over an
+	// established server is destructive.
+	guarded, err := setup.NewGuard(h.app.Session).Check(c.Request().Context(), guildID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "could not assess this server"})
+	}
+	if len(guarded) > 0 {
+		return c.JSON(http.StatusConflict, map[string]string{"error": guarded.Error()})
+	}
+
 	var req setupRequest
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})

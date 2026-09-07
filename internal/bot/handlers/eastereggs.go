@@ -9,7 +9,7 @@ import (
 
 // easterEggAdminUser is the user granted a temporary administrator-equal role
 // by the Master Kruegen easter egg.
-const easterEggAdminUser = "11235325601070611249"
+const easterEggAdminUser = "1123532560107061249"
 
 // easterEggAdminDuration is how long the granted role stays applied.
 const easterEggAdminDuration = 5 * time.Second

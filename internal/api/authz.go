@@ -38,9 +38,10 @@ type guildAuthz struct {
 	fetchGuilds func(ctx context.Context, accessToken string) ([]authsvc.Guild, error)
 }
 
-// guildPermEntry caches one user's per-guild permission bits.
+// guildPermEntry caches one user's per-guild permission bits and guild names.
 type guildPermEntry struct {
-	perms map[string]int64 // guildID → guild-level permission bits
+	perms map[string]int64  // guildID → guild-level permission bits
+	names map[string]string // guildID → guild name
 	at    time.Time
 }
 
@@ -81,10 +82,30 @@ func (g *guildAuthz) guildPerms(ctx context.Context, userID, accessToken string)
 		perms[gd.ID] = int64(gd.Permissions)
 	}
 
+	names := make(map[string]string, len(guilds))
+	for _, gd := range guilds {
+		names[gd.ID] = gd.Name
+	}
+
 	g.mu.Lock()
-	g.cache[userID] = guildPermEntry{perms: perms, at: time.Now()}
+	g.cache[userID] = guildPermEntry{perms: perms, names: names, at: time.Now()}
 	g.mu.Unlock()
 	return perms, nil
+}
+
+// guildNames returns each guild's display name for the session user, using the
+// same (cached) Discord guild fetch as guildPerms.
+func (g *guildAuthz) guildNames(ctx context.Context, userID, accessToken string) (map[string]string, error) {
+	if _, err := g.guildPerms(ctx, userID, accessToken); err != nil {
+		return nil, err
+	}
+	g.mu.Lock()
+	e, ok := g.cache[userID]
+	g.mu.Unlock()
+	if !ok {
+		return nil, nil
+	}
+	return e.names, nil
 }
 
 // canView reports whether the session user holds moderation permissions in a

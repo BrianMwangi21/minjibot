@@ -60,6 +60,7 @@ export default function GuildLogs() {
   const { guildId } = useParams<{ guildId: string }>()
   const me = useCurrentUser()
 
+  const [guildName, setGuildName] = useState<string | null>(null)
   const [deleted, setDeleted] = useState<PageResponse<DeletedMessage> | null>(null)
   const [actions, setActions] = useState<PageResponse<ModAction> | null>(null)
   const [loading, setLoading] = useState(true)
@@ -70,6 +71,16 @@ export default function GuildLogs() {
     let cancelled = false
     setLoading(true)
     setError(null)
+
+    fetch(apiUrl("/api/guilds"), { credentials: "include", headers: { Accept: "application/json" } })
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`${res.status}`)
+        const guilds = (await res.json()) as { id: string; name: string }[]
+        if (!cancelled) setGuildName(guilds.find((g) => g.id === guildId)?.name ?? null)
+      })
+      .catch(() => {
+        if (!cancelled) setGuildName(null)
+      })
 
     Promise.all([
       fetch(apiUrl(`/api/logs/deleted?guild_id=${guildId}`), {
@@ -125,7 +136,8 @@ export default function GuildLogs() {
                 Logs
               </h1>
               <p className="text-sm text-muted-foreground">
-                Deleted messages and moderation actions for <code className="font-mono text-xs">{guildId}</code>.
+                Deleted messages and moderation actions for{" "}
+                <code className="font-mono text-xs">{guildName || guildId}</code>.
               </p>
             </div>
             <Link

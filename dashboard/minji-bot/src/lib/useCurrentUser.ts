@@ -4,6 +4,8 @@ import { apiUrl } from "@/lib/api"
 export type CurrentUser = {
   id: string
   email: string
+  username: string
+  avatar: string
   is_admin: boolean
 }
 

@@ -111,13 +111,21 @@ func (h *authHandlers) me(c *echo.Context) error {
 	// at least one guild. A stale session without an access token (or a
 	// transient Discord failure) reports false rather than failing the request.
 	isAdmin := false
+	username := ""
+	avatar := ""
 	if sess.AccessToken != "" {
 		isAdmin, _ = h.authz.hasAny(c.Request().Context(), sess.UserID, sess.AccessToken)
+		if du, err := h.oauth.FetchUserByToken(c.Request().Context(), sess.AccessToken); err == nil {
+			username = du.Username
+			avatar = authsvc.AvatarURL(du.ID, du.Avatar)
+		}
 	}
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"id":       u.UserID,
 		"email":    u.Email,
+		"username": username,
+		"avatar":   avatar,
 		"is_admin": isAdmin,
 	})
 }

@@ -82,6 +82,7 @@ func (h *logHandlers) listGuilds(c *echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "reauthenticate"})
 	}
+	names, _ := h.authz.guildNames(c.Request().Context(), sess.UserID, sess.AccessToken)
 	ctx := c.Request().Context()
 
 	guilds, err := h.guilds.List(ctx)
@@ -96,9 +97,13 @@ func (h *logHandlers) listGuilds(c *echo.Context) error {
 		if _, ok := allowed[g.ID]; !ok {
 			continue
 		}
+		name := g.Name
+		if name == "" {
+			name = names[g.ID]
+		}
 		out = append(out, guildSummary{
 			ID:              g.ID,
-			Name:            g.Name,
+			Name:            name,
 			PremiumTier:     g.PremiumTier,
 			DeletedMessages: deletedCounts[g.ID],
 			ModActions:      actionCounts[g.ID],

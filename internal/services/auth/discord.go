@@ -141,6 +141,33 @@ func (d *DiscordOAuth) UserGuilds(ctx context.Context, accessToken string) ([]Gu
 }
 
 // FetchUser retrieves the /users/@me profile for the given token.
+// FetchUserByToken fetches the authenticated user's Discord profile using a
+// raw access token (for calls when only the token is available, e.g. reading
+// a stored session).
+func (d *DiscordOAuth) FetchUserByToken(ctx context.Context, accessToken string) (*DiscordUser, error) {
+	if accessToken == "" {
+		return nil, errors.New("missing access token")
+	}
+	return d.FetchUser(ctx, &oauth2.Token{AccessToken: accessToken})
+}
+
+// AvatarURL returns the CDN URL for a Discord avatar, or the user's default
+// avatar URL when no custom avatar is set.
+func AvatarURL(id, hash string) string {
+	if hash == "" {
+		idx := int64(0)
+		if parsed, err := strconv.ParseInt(id, 10, 64); err == nil {
+			idx = (parsed >> 22) % 6
+		}
+		return fmt.Sprintf("https://cdn.discordapp.com/embed/avatars/%d.png", idx)
+	}
+	ext := "png"
+	if strings.HasPrefix(hash, "a_") {
+		ext = "gif"
+	}
+	return fmt.Sprintf("https://cdn.discordapp.com/avatars/%s/%s.%s", id, hash, ext)
+}
+
 func (d *DiscordOAuth) FetchUser(ctx context.Context, tok *oauth2.Token) (*DiscordUser, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, discordAPIBase+"/users/@me", nil)
 	if err != nil {

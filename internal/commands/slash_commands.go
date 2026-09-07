@@ -765,6 +765,51 @@ var SlashCommands = []*discordgo.ApplicationCommand{
 		},
 	},
 	{
+		Name:        "channel",
+		Description: "Create channels and modify their rules",
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "create",
+				Description: "Create a new channel",
+				Options: []*discordgo.ApplicationCommandOption{
+					{Type: discordgo.ApplicationCommandOptionString, Name: "name", Description: "Channel name", Required: true},
+					{Type: discordgo.ApplicationCommandOptionString, Name: "type", Description: "text, voice, or category (default text)", Required: false},
+					{Type: discordgo.ApplicationCommandOptionString, Name: "topic", Description: "Channel topic (text channels)", Required: false},
+				},
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "edit",
+				Description: "Modify a channel's rules",
+				Options: []*discordgo.ApplicationCommandOption{
+					{Type: discordgo.ApplicationCommandOptionChannel, Name: "channel", Description: "Channel to edit (default current)", Required: false},
+					{Type: discordgo.ApplicationCommandOptionString, Name: "property", Description: "rename, topic, slowmode, or nsfw", Required: true},
+					{Type: discordgo.ApplicationCommandOptionString, Name: "value", Description: "New value", Required: true},
+				},
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "setperm",
+				Description: "Allow or deny a permission for a role in a channel",
+				Options: []*discordgo.ApplicationCommandOption{
+					{Type: discordgo.ApplicationCommandOptionChannel, Name: "channel", Description: "Channel (default current)", Required: false},
+					{Type: discordgo.ApplicationCommandOptionRole, Name: "role", Description: "Role to modify", Required: true},
+					{Type: discordgo.ApplicationCommandOptionBoolean, Name: "allow", Description: "true to allow, false to deny", Required: true},
+					{Type: discordgo.ApplicationCommandOptionString, Name: "permission", Description: "Permission (view, send, attach, connect, speak, manage...)", Required: true},
+				},
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "info",
+				Description: "Show channel details",
+				Options: []*discordgo.ApplicationCommandOption{
+					{Type: discordgo.ApplicationCommandOptionChannel, Name: "channel", Description: "Channel to inspect (default current)", Required: false},
+				},
+			},
+		},
+	},
+	{
 		Name:        "denyperm",
 		Description: "Deny a permission to a user or role in a channel",
 		Options: []*discordgo.ApplicationCommandOption{

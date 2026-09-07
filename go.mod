@@ -11,6 +11,7 @@ require (
 )
 
 require (
+	github.com/BurntSushi/toml v1.6.0 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	golang.org/x/crypto v0.0.0-20210421170649-83a5a9bb288b // indirect

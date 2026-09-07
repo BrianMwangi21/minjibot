@@ -8,12 +8,14 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/bwmarrin/discordgo"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/kibetnathan/minjibot/infrastructure/postgres"
 	"github.com/kibetnathan/minjibot/internal/config"
 	"github.com/kibetnathan/minjibot/internal/logger"
 	"github.com/kibetnathan/minjibot/internal/ports/repository"
 	authsvc "github.com/kibetnathan/minjibot/internal/services/auth"
+	"github.com/kibetnathan/minjibot/internal/setup"
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
 )
@@ -23,6 +25,12 @@ type App struct {
 	Cfg    *config.Config
 	Pool   *pgxpool.Pool
 	server *http.Server
+
+	// bot holds a live reference to the Discord session and command handler
+	// once cmd/main.go has created the bot app. These fields are nil until
+	// AttachBot is called.
+	Session     *discordgo.Session
+	SetupRunner *setup.Runner
 }
 
 func NewApp() (*App, error) {
@@ -92,6 +100,14 @@ func NewApp() (*App, error) {
 }
 
 // registerRoutes wires the HTTP API routes, including the Discord OAuth flow.
+// AttachBot wires the Discord session and command handler into the API so
+// endpoints that need the bot (like setup provisioning) can use it. Call this
+// after bot.NewApp() succeeds, before or after the API starts.
+func (a *App) AttachBot(s *discordgo.Session, cmds setup.CommandRunner) {
+	a.Session = s
+	a.SetupRunner = setup.NewRunner(s, cmds)
+}
+
 func (a *App) registerRoutes() {
 	store := repository.NewSQLStore(postgres.New(a.Pool))
 	userRepo := repository.NewUserRepository(store)
@@ -140,6 +156,14 @@ func (a *App) registerRoutes() {
 		diary: repository.NewDiaryRepository(store),
 	}
 	a.registerDiaryRoutes(group, diaryHandlers)
+
+	// Setup endpoints only function when the bot session is attached; the
+	// handlers return a 503 "bot not connected" otherwise.
+	a.registerSetupRoutes(group, &setupHandlers{
+		sess:  authsvc.NewSessionManager(a.Cfg.SessionSecret),
+		authz: authz,
+		app:   a,
+	})
 }
 
 func (a *App) Start() error {

@@ -149,3 +149,17 @@ func (g *guildAuthz) hasAny(ctx context.Context, userID, accessToken string) (bo
 	}
 	return len(auth) > 0, nil
 }
+
+// canAdmin reports whether the session user holds the Administrator permission
+// (server-wide) in a single guild. Used for destructive dashboard actions like
+// running a server setup.
+func (g *guildAuthz) canAdmin(ctx context.Context, userID, accessToken, guildID string) (bool, error) {
+	perms, err := g.guildPerms(ctx, userID, accessToken)
+	if err != nil {
+		return false, err
+	}
+	if bits, ok := perms[guildID]; ok {
+		return bits&discordgo.PermissionAdministrator != 0, nil
+	}
+	return false, nil
+}

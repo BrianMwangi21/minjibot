@@ -35,6 +35,9 @@ func main() {
 	if err != nil {
 		apiApp.Echo.Logger.Error("Failed to initialize bot (API still running)", "error", err.Error())
 	} else {
+		// Give the API access to the bot's session + command handler so the
+		// server-setup endpoints can provision guilds.
+		apiApp.AttachBot(botApp.Session, botApp.CommandHandler())
 		go func() {
 			if err := botApp.Start(); err != nil {
 				botApp.Logger.Error("Bot error", "error", err.Error())

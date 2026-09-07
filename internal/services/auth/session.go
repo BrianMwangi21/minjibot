@@ -23,8 +23,13 @@ const (
 
 // Session is the serialized value stored in the signed session cookie.
 type Session struct {
-	UserID string    `json:"user_id"`
-	Expiry time.Time `json:"expiry"`
+	UserID string `json:"user_id"`
+	// AccessToken is the Discord OAuth token that lets the API authorize the
+	// user per guild (via /users/@me/guilds). Omitting it (blank) means the
+	// session predates guild-based authorization and must be refreshed by
+	// logging in again.
+	AccessToken string    `json:"access_token,omitempty"`
+	Expiry      time.Time `json:"expiry"`
 }
 
 // SessionManager signs and verifies session cookies using an HMAC-SHA256
@@ -45,10 +50,11 @@ func NewSessionManager(secret string) *SessionManager {
 	return &SessionManager{secret: key}
 }
 
-// Create issues a new session for the given user id and returns it as a cookie.
-func (sm *SessionManager) Create(userID string) (*http.Cookie, error) {
+// Create issues a new session for the given user id and Discord access token
+// and returns it as a cookie.
+func (sm *SessionManager) Create(userID, accessToken string) (*http.Cookie, error) {
 	expiry := time.Now().Add(sessionCookieMaxAge)
-	raw, err := json.Marshal(Session{UserID: userID, Expiry: expiry})
+	raw, err := json.Marshal(Session{UserID: userID, AccessToken: accessToken, Expiry: expiry})
 	if err != nil {
 		return nil, err
 	}

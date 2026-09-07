@@ -96,20 +96,19 @@ func (a *App) registerRoutes() {
 	store := repository.NewSQLStore(postgres.New(a.Pool))
 	userRepo := repository.NewUserRepository(store)
 
-	// Shared authorizer gating dashboard data access. Warn loudly when the
-	// allowlist is empty: the app still runs, but every guild-data endpoint
-	// rejects all users until DASHBOARD_ADMIN_IDS is set.
-	authz := newAuthorizer(a.Cfg.DashboardAdminIDs)
-	if authz.empty() {
-		a.Echo.Logger.Warn("DASHBOARD_ADMIN_IDS is empty: dashboard data endpoints will reject all users")
-	}
+	oauth := authsvc.NewDiscordOAuth(
+		a.Cfg.DiscordClientID,
+		a.Cfg.DiscordClientSecret,
+		a.Cfg.AppURL,
+	)
+
+	// Per-guild dashboard authorization: a user may view a guild's data only if
+	// they hold moderation permissions in that guild on Discord. No global
+	// allowlist — each guild's own moderators see their own data.
+	authz := newGuildAuthz(oauth)
 
 	authHandlers := &authHandlers{
-		oauth: authsvc.NewDiscordOAuth(
-			a.Cfg.DiscordClientID,
-			a.Cfg.DiscordClientSecret,
-			a.Cfg.AppURL,
-		),
+		oauth: oauth,
 		sess:  authsvc.NewSessionManager(a.Cfg.SessionSecret),
 		authz: authz,
 		users: userRepo,

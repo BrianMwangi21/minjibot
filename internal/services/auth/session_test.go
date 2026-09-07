@@ -27,7 +27,7 @@ func encodeSession(t *testing.T, s Session) string {
 func TestSession_RoundTripThroughHTTP(t *testing.T) {
 	sm := NewSessionManager("a-test-secret")
 
-	cookie, err := sm.Create("user-123")
+	cookie, err := sm.Create("user-123", "tok-456")
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -55,11 +55,14 @@ func TestSession_RoundTripThroughHTTP(t *testing.T) {
 	if s.UserID != "user-123" {
 		t.Errorf("user id = %q, want %q", s.UserID, "user-123")
 	}
+	if s.AccessToken != "tok-456" {
+		t.Errorf("access token = %q, want %q", s.AccessToken, "tok-456")
+	}
 }
 
 func TestSession_CookieValueIsHTTPSafe(t *testing.T) {
 	sm := NewSessionManager("secret")
-	cookie, err := sm.Create("user-123")
+	cookie, err := sm.Create("user-123", "")
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -73,7 +76,7 @@ func TestSession_CookieValueIsHTTPSafe(t *testing.T) {
 
 func TestSession_CreateVerify(t *testing.T) {
 	sm := NewSessionManager("secret")
-	cookie, err := sm.Create("abc")
+	cookie, err := sm.Create("abc", "")
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -88,7 +91,7 @@ func TestSession_CreateVerify(t *testing.T) {
 
 func TestSession_TamperedPayloadRejected(t *testing.T) {
 	sm := NewSessionManager("secret")
-	cookie, _ := sm.Create("abc")
+	cookie, _ := sm.Create("abc", "")
 
 	// Flip a character in the payload portion (before the '.') — the MAC no
 	// longer matches.
@@ -105,7 +108,7 @@ func TestSession_TamperedPayloadRejected(t *testing.T) {
 func TestSession_WrongSecretRejected(t *testing.T) {
 	a := NewSessionManager("secret-a")
 	b := NewSessionManager("secret-b")
-	cookie, _ := a.Create("abc")
+	cookie, _ := a.Create("abc", "")
 	if _, err := b.Verify(cookie.Value); err == nil {
 		t.Error("expected a session signed with a different secret to be rejected")
 	}

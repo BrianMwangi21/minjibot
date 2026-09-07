@@ -1,41 +1,130 @@
 package api
 
-import "strings"
+import (
+	"context"
+	"sync"
+	"time"
 
-// authorizer decides whether an authenticated Discord user is allowed to view
-// the dashboard's guild data. It holds an allowlist of Discord user IDs; a user
-// is authorized only if their ID is in the list. An empty allowlist authorizes
-// nobody (fail closed), so a misconfigured deployment never leaks guild data.
-type authorizer struct {
-	adminIDs map[string]struct{}
+	"github.com/bwmarrin/discordgo"
+	authsvc "github.com/kibetnathan/minjibot/internal/services/auth"
+)
+
+// modPermBits are the server-wide permissions that grant moderation power.
+// It mirrors the bot commands' defaultModPerm plus ManageGuild: viewing a
+// guild's dashboard data is gated on the same abilities that let someone
+// moderate or manage that guild.
+const modPermBits = discordgo.PermissionManageGuild |
+	discordgo.PermissionManageMessages |
+	discordgo.PermissionKickMembers |
+	discordgo.PermissionBanMembers |
+	discordgo.PermissionManageRoles |
+	discordgo.PermissionManageChannels |
+	discordgo.PermissionAdministrator
+
+// guildAuthzTTL is how long a user's per-guild permission snapshot is reused
+// before it is re-fetched from Discord.
+const guildAuthzTTL = 60 * time.Second
+
+// guildAuthz grants dashboard access per guild: a user may view a guild's data
+// only if they hold moderation permissions in that guild on Discord. The
+// permissions come from the user's own OAuth session (GET /users/@me/guilds),
+// never from a global allowlist — which is what lets the dashboard serve a
+// bot installed in a large number of independent guilds.
+type guildAuthz struct {
+	mu    sync.Mutex
+	cache map[string]guildPermEntry
+
+	// fetchGuilds calls Discord /users/@me/guilds; overridden in tests.
+	fetchGuilds func(ctx context.Context, accessToken string) ([]authsvc.Guild, error)
 }
 
-// newAuthorizer builds an authorizer from a list of Discord user IDs. Blank and
-// whitespace-only entries are ignored so a trailing comma in the env var does
-// not silently create an empty-string "admin".
-func newAuthorizer(ids []string) *authorizer {
-	m := make(map[string]struct{}, len(ids))
-	for _, id := range ids {
-		id = strings.TrimSpace(id)
-		if id == "" {
-			continue
+// guildPermEntry caches one user's per-guild permission bits.
+type guildPermEntry struct {
+	perms map[string]int64 // guildID → guild-level permission bits
+	at    time.Time
+}
+
+// newGuildAuthz builds a per-guild authorizer that resolves permissions via
+// the given Discord OAuth client.
+func newGuildAuthz(oauth *authsvc.DiscordOAuth) *guildAuthz {
+	return &guildAuthz{
+		cache: make(map[string]guildPermEntry),
+		fetchGuilds: func(ctx context.Context, accessToken string) ([]authsvc.Guild, error) {
+			return oauth.UserGuilds(ctx, accessToken)
+		},
+	}
+}
+
+// hasModPerms reports whether guild-level permission bits include any
+// moderation permission. Administrator is included in the mask, so holding it
+// always authorizes.
+func hasModPerms(bits int64) bool {
+	return bits&modPermBits != 0
+}
+
+// guildPerms returns the user's per-guild permission bits, memoized for
+// guildAuthzTTL to avoid hammering Discord on every dashboard request.
+func (g *guildAuthz) guildPerms(ctx context.Context, userID, accessToken string) (map[string]int64, error) {
+	g.mu.Lock()
+	if e, ok := g.cache[userID]; ok && time.Since(e.at) < guildAuthzTTL {
+		g.mu.Unlock()
+		return e.perms, nil
+	}
+	g.mu.Unlock()
+
+	guilds, err := g.fetchGuilds(ctx, accessToken)
+	if err != nil {
+		return nil, err
+	}
+	perms := make(map[string]int64, len(guilds))
+	for _, gd := range guilds {
+		perms[gd.ID] = int64(gd.Permissions)
+	}
+
+	g.mu.Lock()
+	g.cache[userID] = guildPermEntry{perms: perms, at: time.Now()}
+	g.mu.Unlock()
+	return perms, nil
+}
+
+// canView reports whether the session user holds moderation permissions in a
+// single guild.
+func (g *guildAuthz) canView(ctx context.Context, userID, accessToken, guildID string) (bool, error) {
+	if userID == "" || accessToken == "" || guildID == "" {
+		return false, nil
+	}
+	perms, err := g.guildPerms(ctx, userID, accessToken)
+	if err != nil {
+		return false, err
+	}
+	if bits, ok := perms[guildID]; ok {
+		return hasModPerms(bits), nil
+	}
+	return false, nil
+}
+
+// authorizableGuilds returns the set of guilds the user holds moderation
+// permissions in.
+func (g *guildAuthz) authorizableGuilds(ctx context.Context, userID, accessToken string) (map[string]struct{}, error) {
+	perms, err := g.guildPerms(ctx, userID, accessToken)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]struct{})
+	for id, bits := range perms {
+		if hasModPerms(bits) {
+			out[id] = struct{}{}
 		}
-		m[id] = struct{}{}
 	}
-	return &authorizer{adminIDs: m}
+	return out, nil
 }
 
-// isAdmin reports whether the given Discord user ID is on the allowlist.
-func (a *authorizer) isAdmin(userID string) bool {
-	if userID == "" {
-		return false
+// hasAny reports whether the user holds moderation permissions in at least one
+// guild. Used to answer "is this account a dashboard moderator (somewhere)".
+func (g *guildAuthz) hasAny(ctx context.Context, userID, accessToken string) (bool, error) {
+	auth, err := g.authorizableGuilds(ctx, userID, accessToken)
+	if err != nil {
+		return false, err
 	}
-	_, ok := a.adminIDs[userID]
-	return ok
-}
-
-// empty reports whether the allowlist has no entries. Used at startup to warn
-// that every dashboard data endpoint will reject all users until configured.
-func (a *authorizer) empty() bool {
-	return len(a.adminIDs) == 0
+	return len(auth) > 0, nil
 }

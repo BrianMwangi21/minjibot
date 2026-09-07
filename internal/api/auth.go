@@ -20,7 +20,7 @@ const userContextKey = "auth.user"
 type authHandlers struct {
 	oauth    *authsvc.DiscordOAuth
 	sess     *authsvc.SessionManager
-	authz    *authorizer
+	authz    *guildAuthz
 	users    repository.UserRepository
 	frontend string
 }
@@ -64,7 +64,7 @@ func (h *authHandlers) callback(c *echo.Context) error {
 	// State is single-use; clear it now that it has been consumed.
 	c.SetCookie(authsvc.ClearStateCookie())
 
-	discordUser, err := h.oauth.Exchange(c.Request().Context(), code)
+	discordUser, token, err := h.oauth.Exchange(c.Request().Context(), code)
 	if err != nil {
 		return c.Redirect(http.StatusFound, frontend+"/login?error=oauth_failed")
 	}
@@ -74,7 +74,7 @@ func (h *authHandlers) callback(c *echo.Context) error {
 		return c.Redirect(http.StatusFound, frontend+"/login?error=account_error")
 	}
 
-	cookie, err := h.sess.Create(u.UserID)
+	cookie, err := h.sess.Create(u.UserID, token.AccessToken)
 	if err != nil {
 		return c.Redirect(http.StatusFound, frontend+"/login?error=session_error")
 	}
@@ -107,10 +107,18 @@ func (h *authHandlers) me(c *echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "account_disabled"})
 	}
 
+	// "Administrator" on the dashboard means holding moderation permissions in
+	// at least one guild. A stale session without an access token (or a
+	// transient Discord failure) reports false rather than failing the request.
+	isAdmin := false
+	if sess.AccessToken != "" {
+		isAdmin, _ = h.authz.hasAny(c.Request().Context(), sess.UserID, sess.AccessToken)
+	}
+
 	return c.JSON(http.StatusOK, map[string]any{
 		"id":       u.UserID,
 		"email":    u.Email,
-		"is_admin": h.authz.isAdmin(u.UserID),
+		"is_admin": isAdmin,
 	})
 }
 

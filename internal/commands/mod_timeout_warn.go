@@ -130,7 +130,7 @@ func warnSlashCommandHandler(h *CommandHandler, s *discordgo.Session, i *discord
 			Data: &discordgo.InteractionResponseData{Embeds: []*discordgo.MessageEmbed{modErrorEmbed("Warn", fmt.Sprintf("Could not find that user: %s", err))}},
 		})
 	}
-if rejectSelfActionSlash(s, i, "Warn", i.Member.User.ID, targetID) {
+	if rejectSelfActionSlash(s, i, "Warn", i.Member.User.ID, targetID) {
 		return nil
 	}
 	logModAction(h, s, i.GuildID, "WARN", i.Member.User.ID, i.Member.User.Username, targetID, name, map[string]any{"reason": reason})

@@ -19,7 +19,7 @@ import (
 // logHandlers bundles the dependencies shared by the dashboard log endpoints.
 type logHandlers struct {
 	sess    *authsvc.SessionManager
-	authz   *authorizer
+	authz   *guildAuthz
 	guilds  repository.GuildRepository
 	audits  repository.AuditLogRepository
 	deletes repository.DeletedMessageRepository
@@ -31,16 +31,28 @@ func (a *App) registerLogRoutes(group *echo.Group, h *logHandlers) {
 	group.GET("/logs/actions", h.listModActions)
 }
 
-// requireAdmin gates a dashboard data endpoint: it rejects the request with 401
-// when no valid session is present, and with 403 when the session's Discord user
-// is not on the admin allowlist. It returns the user ID only when authorized.
-func (h *logHandlers) requireAdmin(c *echo.Context) (string, bool) {
+// requireGuildPerm gates a dashboard data endpoint for a single guild: 401
+// without a valid session, and 403 when the session's Discord user holds no
+// moderation permission in that guild.
+func (h *logHandlers) requireGuildPerm(c *echo.Context, guildID string) (string, bool) {
 	sess, ok := resolveSession(c, h.sess)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 		return "", false
 	}
-	if !h.authz.isAdmin(sess.UserID) {
+	if sess.AccessToken == "" {
+		// Session predates guild-based authorization; requires re-login.
+		c.JSON(http.StatusUnauthorized, map[string]string{"error": "reauthenticate"})
+		return "", false
+	}
+	allowed, err := h.authz.canView(c.Request().Context(), sess.UserID, sess.AccessToken, guildID)
+	if err != nil {
+		// Discord rejected/revoked the token (or is unreachable): force a
+		// fresh login rather than guessing at permissions.
+		c.JSON(http.StatusUnauthorized, map[string]string{"error": "reauthenticate"})
+		return "", false
+	}
+	if !allowed {
 		c.JSON(http.StatusForbidden, map[string]string{"error": "forbidden"})
 		return "", false
 	}
@@ -55,11 +67,20 @@ type guildSummary struct {
 	ModActions      int64  `json:"mod_actions"`
 }
 
-// listGuilds returns every guild the bot knows about plus per-guild counts of
-// deleted messages and moderation actions, so the dashboard can offer a picker.
+// listGuilds returns every guild the bot has data for that the session user
+// holds moderation permissions in, plus per-guild deleted-message and
+// moderation-action counts, so the dashboard can offer a picker.
 func (h *logHandlers) listGuilds(c *echo.Context) error {
-if _, ok := h.requireAdmin(c); !ok {
-		return nil
+	sess, ok := resolveSession(c, h.sess)
+	if !ok {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+	}
+	if sess.AccessToken == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "reauthenticate"})
+	}
+	allowed, err := h.authz.authorizableGuilds(c.Request().Context(), sess.UserID, sess.AccessToken)
+	if err != nil {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "reauthenticate"})
 	}
 	ctx := c.Request().Context()
 
@@ -72,6 +93,9 @@ if _, ok := h.requireAdmin(c); !ok {
 
 	out := make([]guildSummary, 0, len(guilds))
 	for _, g := range guilds {
+		if _, ok := allowed[g.ID]; !ok {
+			continue
+		}
 		out = append(out, guildSummary{
 			ID:              g.ID,
 			Name:            g.Name,
@@ -86,15 +110,15 @@ if _, ok := h.requireAdmin(c); !ok {
 // listDeletedMessages returns deleted messages for a guild (required query
 // param guild_id), newest first.
 func (h *logHandlers) listDeletedMessages(c *echo.Context) error {
-if _, ok := h.requireAdmin(c); !ok {
-		return nil
-	}
-	ctx := c.Request().Context()
-
 	guildID := c.QueryParam("guild_id")
 	if guildID == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "guild_id required"})
 	}
+	if _, ok := h.requireGuildPerm(c, guildID); !ok {
+		return nil
+	}
+	ctx := c.Request().Context()
+
 	limit, offset := pageParams(c)
 
 	msgs, err := h.deletes.ListForGuild(ctx, guildID, int32(limit), int32(offset))
@@ -118,15 +142,15 @@ if _, ok := h.requireAdmin(c); !ok {
 // listModActions returns moderation actions (audit logs) for a guild (required
 // query param guild_id), newest first, excluding message-created noise.
 func (h *logHandlers) listModActions(c *echo.Context) error {
-if _, ok := h.requireAdmin(c); !ok {
-		return nil
-	}
-	ctx := c.Request().Context()
-
 	guildID := c.QueryParam("guild_id")
 	if guildID == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "guild_id required"})
 	}
+	if _, ok := h.requireGuildPerm(c, guildID); !ok {
+		return nil
+	}
+	ctx := c.Request().Context()
+
 	limit, offset := pageParams(c)
 
 	logs, err := h.audits.ListForGuild(ctx, guildID, int32(limit), int32(offset))

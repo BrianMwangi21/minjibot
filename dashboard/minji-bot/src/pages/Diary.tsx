@@ -34,8 +34,6 @@ export default function Diary() {
 
   const load = useCallback(() => {
     if (me.status !== "authenticated") return
-    setLoading(true)
-    setError(null)
     fetch(apiUrl("/api/diary"), {
       credentials: "include",
       headers: { Accept: "application/json" },

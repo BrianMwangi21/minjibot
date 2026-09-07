@@ -25,6 +25,12 @@ export function DashboardHeader() {
             Commands
           </Link>
           <Link
+            to="/dashboard"
+            className="transition-colors hover:text-foreground"
+          >
+            Guilds
+          </Link>
+          <Link
             to="/dashboard/diary"
             className="transition-colors hover:text-foreground"
           >

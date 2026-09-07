@@ -22,7 +22,6 @@ export function useCurrentUser(enabled = true): State {
 
   useEffect(() => {
     if (!enabled) {
-      setState({ status: "unauthenticated" })
       return
     }
 
@@ -53,5 +52,5 @@ export function useCurrentUser(enabled = true): State {
     }
   }, [enabled])
 
-  return state
+  return enabled ? state : { status: "unauthenticated" }
 }

@@ -49,7 +49,20 @@ internal/
     app.go           App struct, NewApp, registerRoutes, CORS
     auth.go          Discord OAuth flow (/api/auth/discord, callback, logout, me)
     logs.go          Dashboard log endpoints (/api/guilds, /api/logs/*)
+    settings.go      Guild settings endpoints (GET/PUT /api/guilds/:id/settings)
+    setup.go         Setup provisioning endpoints (run, dry-run, channels)
+    diary.go         Diary endpoints
     session.go       resolveSession helper
+  setup/             TOML server provisioning (Parse/Validate, Runner, per-section impls)
+    toml.go          Config structs + structural validation
+    runner.go        Runner struct, Run() sequencing, NewRunner
+    commands.go      Prefix-command passthrough with {role}/{channel} ref expansion
+    media.go         Emoji/sticker uploads
+    onboarding.go    Onboarding publish + default-channel auto-fill
+    perms.go         Permission/color parsing tables
+    guard.go         Refuses to provision servers that already look live
+    rules_logging.go [rules] embed (post+pin) and [logging] settings persistence
+  safe/              Panic-recovery helpers for gateway handlers
   config/            env config (caarlos0/env/v11)
   domain/            Domain entities (pure structs, no deps)
   ports/
@@ -78,6 +91,17 @@ dashboard/minji-bot/      React + Vite + shadcn dashboard
 | `internal/api/app.go` | API `App` struct, Echo setup, CORS, route wiring |
 | `internal/api/logs.go` | Dashboard endpoints: guild list, deleted messages, mod actions |
 | `internal/ports/repository/store.go` | `SQLStore` wrapping generated `Querier` |
+
+## Non-command features
+
+These ship outside the command catalog and are easy to miss when grepping for commands.
+
+- **Server setup provisioning** — `internal/setup/` parses + validates a TOML document and `Runner.Run` applies it (roles → channels → rules → logging → media → community → onboarding → commands). Each item appends a `Step` (ok|skipped|failed). `NewRunner(s, commands, settings)`: `settings` persists `[logging]` guild settings; may be nil (logging step then fails). Guard refuses established servers. The dashboard sends the document via `POST /api/guilds/:guildId/setup` (dry-run = `.../dry-run`).
+- **Rules embed** — `[rules]` posts and pins a rules embed (`ChannelMessageSendEmbed` + `ChannelMessagePin`); a pin failure is non-fatal. Only runs if the referenced channel was successfully created.
+- **Logging settings persistence** — `[logging]` upserts guild settings (log channel + message-content capture) via `GuildSettingsRepository`; preserves existing prefix/language/auto-moderation fields by reading them first.
+- **Deleted-message + mod-action logging** — rolling 2000-message cache (`State.MaxMessageCount`) so deleted content is reconstructable; opt-in content capture pruned after 30 days by `startMessageLogPruner` in `internal/bot/app.go` (runs at startup + every 6h).
+- **Donation prompt cadence** — `commands.IsModerationCommand(name)` exempts mod actions; `MaybeShowDonatePrompt` (called from message/interaction handlers, not setup passthrough) surfaces the donation card every randomly-chosen 13-15 non-moderation commands. Guarded by a mutex; gateway handlers run concurrently.
+- **Guild settings** — prefix, language, auto-moderation, log channel, message logging via `internal/api/settings.go` + dashboard settings page.
 
 ## Conventions
 

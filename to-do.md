@@ -10,12 +10,9 @@
 
 ## Medium priority
 
-- [ ] Avatar history tracking (enable/disable, store past avatars)
-- [ ] Factcheck command integration
-- [ ] Sticker add command (upload from attachment)
-- [ ] Emoji add many (bulk upload)
-- [ ] Reminder system (scheduled pings via goroutines)
-- [ ] Dashboard: server settings page (prefix, log channel, etc.)
+- [ ] Social lookup expansions (linkedin, pinterest, roblox, etc.) beyond the planned list
+- [ ] Dashboard: birthday management UI
+- [ ] Dashboard: command management page
 - [ ] Rate limiting per user/guild
 
 ## Low priority
@@ -63,3 +60,18 @@
 - [x] Botinfo, channelinfo, guild stats
 - [x] Avatar, banner, user info, roles, emojis, stickers, bans
 - [x] Weather, timezone, Urban Dictionary
+
+## Done — non-command features
+
+- [x] Server setup provisioning (TOML: server, roles, channels, emojis, stickers, community, onboarding, commands)
+- [x] Setup dry-run validation + guard against established servers
+- [x] Rules embed section (`[rules]`: post + pin a rules embed)
+- [x] Logging section (`[logging]`: mod-log channel + deleted-message capture)
+- [x] Onboarding default-channel auto-fill to Discord's minimums
+- [x] Deleted-message content logging with 30-day retention + background pruner
+- [x] Moderation action + audit logging (DB + log channel)
+- [x] Guild settings API (prefix, language, log channel, auto-moderation)
+- [x] Dashboard: settings page, setup page (dry-run + run), profile, diary
+- [x] Public setup guide with downloadable TOML templates (8 templates)
+- [x] Donation prompt cadence (every 13-15 non-moderation commands)
+- [x] Avatar history tracking (enable/disable, store past avatars)

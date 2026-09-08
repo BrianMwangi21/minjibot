@@ -218,5 +218,47 @@ Authentication is handled via Discord OAuth2 (session cookie).
 | `/commands` | Command reference |
 | `/dashboard` | Guild picker with logging stats |
 | `/dashboard/guild/:id` | Deleted messages + mod actions for a guild |
+| `/dashboard/guild/:id/settings` | Per-guild settings (prefix, language, log channel, auto-moderation) |
+| `/dashboard/guild/:id/setup` | Server setup provisioning page |
+| `/dashboard/profile` | User profile page |
+| `/dashboard/diary` | Private diary entries |
 | `/login` | Login page |
 | `/signup` | Sign up page |
+| `/setup` | Public server setup guide with TOML templates |
+
+## 10. Non-command features
+
+Beyond the command catalog above, MinjiBot ships features that are not single commands.
+
+### Server setup provisioning (TOML)
+
+A single TOML document provisions a fresh server top-to-bottom, applied through the dashboard (`/dashboard/guild/:id/setup`) and gated behind Administrator permission. The guard refuses servers that already look live, so it is safe for fresh servers only. Each action reports its own step and result:
+
+- `[server]` — name and description
+- `[[roles]]` — roles with colors, hoisting, mentionability, and permission sets
+- `[[channels]]` — text/voice/category/announcement/forum channels with topics, parents, and per-role/user permission overwrites
+- `[[emojis]]` / `[[stickers]]` — uploads from a public image URL
+- `[community]` — enables Community mode (rules/updates channels, verification level, content filter)
+- `[onboarding]` — publishes the onboarding flow with role/channel selectors (defaults auto-filled to Discord's minimums)
+- `[rules]` — posts and pins a rules embed into a channel
+- `[logging]` — sets the mod-log channel and toggles deleted-message content capture
+- `[[commands]]` — runs bot prefix commands last, with `{role:Name}` / `{channel:Name}` mentions expanded
+
+See the setup guide at `/setup` for the full reference and built-in templates.
+
+### Logging & audit
+
+- **Deleted messages** — message content is captured (opt-in, off by default) and posted to the configured log channel. A rolling in-memory cache of the latest 2,000 messages keeps deletions reconstructable even before content logging is enabled. Captured content is stored for 30 days; a background job prunes expired entries every 6 hours.
+- **Moderation actions** — bans, kicks, timeouts, warns, jails, and friends are recorded to the audit log with actor/target names and reasons, written to the database and mirrored to the log channel.
+
+### Guild settings
+
+- Per-guild command prefix, language, auto-moderation toggle, logging channel, and deleted-message content capture. Logging channel/capture can be set with `-setup` commands; the dashboard settings page manages everything including prefix and language.
+
+### Donation prompt
+
+- A support card (Buy Me a Coffee) surfaces in the channel every 13–15 commands that are not moderation actions, advocating for the project without spamming moderators.
+
+### Dashboard & website
+
+- OAuth2-protected dashboard with a guild picker, deleted-message and mod-action views, per-guild settings, and the server setup page (dry-run + apply). The public site adds a command reference and setup guide with downloadable TOML templates.

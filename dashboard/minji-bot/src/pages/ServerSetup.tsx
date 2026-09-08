@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react"
 import { useParams } from "react-router-dom"
-import { CheckCircle2, CircleOff, FileText, Loader2, Play, Rocket, Upload, XCircle } from "lucide-react"
+import { CheckCircle2, CircleOff, Download, FileText, LayoutTemplate, Loader2, Play, Rocket, Upload, XCircle } from "lucide-react"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { apiUrl } from "@/lib/api"
 import { useCurrentUser } from "@/lib/useCurrentUser"
+import { downloadText } from "@/lib/utils"
+import { setupTemplates } from "@/data/setupTemplates"
 
 type Channel = { id: string; name: string; type: number; parent_id: string }
 
@@ -113,6 +115,7 @@ export default function ServerSetup() {
   const [channels, setChannels] = useState<Channel[] | null>(null)
   const [notifyChannel, setNotifyChannel] = useState("")
   const [toml, setToml] = useState("")
+  const [templateId, setTemplateId] = useState("")
   const [results, setResults] = useState<Step[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<null | "dry" | "run">(null)
@@ -147,6 +150,20 @@ export default function ServerSetup() {
   function handleFile(file: File | undefined) {
     if (!file) return
     file.text().then((text) => setToml(text)).catch(() => setError("Could not read that file."))
+  }
+
+  const selectedTemplate = setupTemplates.find((t) => t.id === templateId)
+
+  function loadTemplate() {
+    if (!selectedTemplate) return
+    setToml(selectedTemplate.toml)
+    setResults(null)
+    setError(null)
+  }
+
+  function downloadTemplate() {
+    if (!selectedTemplate) return
+    downloadText(`setup-${selectedTemplate.id}.toml`, selectedTemplate.toml)
   }
 
   async function handleValidate() {
@@ -232,7 +249,7 @@ export default function ServerSetup() {
             <CardHeader>
               <CardTitle>Document</CardTitle>
               <CardDescription>
-                Paste TOML, upload a <code className="font-mono text-xs">.toml</code> file, or load the sample below.
+                Paste TOML, upload a <code className="font-mono text-xs">.toml</code> file, or start from a template.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -249,6 +266,38 @@ export default function ServerSetup() {
                     Upload .toml
                   </span>
                 </label>
+                <select
+                  value={templateId}
+                  onChange={(e) => setTemplateId(e.target.value)}
+                  className="h-8 min-w-44 flex-1 rounded-none border border-input bg-transparent px-2.5 py-1 text-xs outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/50 sm:flex-none"
+                >
+                  <option value="">Pick a template…</option>
+                  {setupTemplates.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={loadTemplate}
+                  disabled={!selectedTemplate}
+                  className="gap-1.5"
+                >
+                  <LayoutTemplate className="size-3.5" />
+                  Load
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={downloadTemplate}
+                  disabled={!selectedTemplate}
+                  className="gap-1.5"
+                >
+                  <Download className="size-3.5" />
+                  Download
+                </Button>
                 <Button variant="ghost" size="sm" onClick={() => setToml(SAMPLE_TOML)} className="gap-1.5">
                   <FileText className="size-3.5" />
                   Load sample

@@ -1,13 +1,14 @@
 import { useState } from "react"
-import { Check, Copy, PartyPopper, Rocket, ShieldCheck, Terminal } from "lucide-react"
+import { Check, Copy, Download, PartyPopper, Rocket, ShieldCheck, Terminal } from "lucide-react"
 import { Navbar } from "@/components/layout/Navbar"
 import { Footer } from "@/components/layout/Footer"
 import { buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { setupTemplates } from "@/data/setupTemplates"
+import { downloadText } from "@/lib/utils"
 
-function CodeBlock({ code, title }: { code: string; title?: string }) {
+function CodeBlock({ code, title, filename }: { code: string; title?: string; filename?: string }) {
   const [copied, setCopied] = useState(false)
 
   async function copy() {
@@ -24,14 +25,26 @@ function CodeBlock({ code, title }: { code: string; title?: string }) {
     <div className="overflow-hidden rounded-none border border-border">
       {title && (
         <div className="flex items-center justify-between border-b border-border px-3 py-1.5">
-          <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{title}</span>
-          <button
-            onClick={copy}
-            className="flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
-          >
-            {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
-            {copied ? "Copied" : "Copy"}
-          </button>
+          <span className="truncate text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{title}</span>
+          <div className="flex shrink-0 items-center gap-2">
+            {filename && (
+              <button
+                onClick={() => downloadText(filename, code)}
+                className="flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+                aria-label={`Download ${filename}`}
+              >
+                <Download className="size-3" />
+                Download
+              </button>
+            )}
+            <button
+              onClick={copy}
+              className="flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
+              {copied ? "Copied" : "Copy"}
+            </button>
+          </div>
         </div>
       )}
       <pre className="max-h-72 overflow-auto px-3 py-2 font-mono text-xs leading-relaxed text-foreground">
@@ -168,6 +181,11 @@ const STEPS = [
 ]
 
 export default function SetupGuide() {
+  const [filter, setFilter] = useState("All")
+  const templateFeatures = [...new Set(setupTemplates.flatMap((t) => t.features))]
+  const visibleTemplates =
+    filter === "All" ? setupTemplates : setupTemplates.filter((t) => t.features.includes(filter))
+
   return (
     <div className="min-h-screen bg-background font-sans antialiased">
       <Navbar />
@@ -184,14 +202,14 @@ export default function SetupGuide() {
             <p className="max-w-2xl text-muted-foreground">
               Declare the roles, channels, Community mode, onboarding flow, and setup commands once — MinjiBot
               applies them in order and reports every step. Here&apos;s how to use it, what the document looks like,
-              and a few templates to start from.
+              and templates covering every feature, from a minimal server to Community mode, forums, and onboarding.
             </p>
           </div>
         </section>
 
         <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
           <div className="grid gap-10 lg:grid-cols-[1fr_380px]">
-            <div className="space-y-10">
+            <div className="min-w-0 space-y-10">
               <section>
                 <h2 className="mb-4 font-heading text-2xl font-semibold tracking-tight text-foreground">How it works</h2>
                 <ol className="space-y-4">
@@ -235,15 +253,38 @@ export default function SetupGuide() {
                   <PartyPopper className="size-5 text-foreground" />
                   <h2 className="font-heading text-2xl font-semibold tracking-tight text-foreground">Templates</h2>
                 </div>
+                <div className="mb-4 flex flex-wrap items-center gap-2">
+                  {["All", ...templateFeatures].map((feature) => (
+                    <button
+                      key={feature}
+                      onClick={() => setFilter(feature)}
+                      className={
+                        "rounded-full border px-3 py-1 text-xs font-medium transition-colors " +
+                        (filter === feature
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border text-muted-foreground hover:border-primary hover:text-foreground")
+                      }
+                    >
+                      {feature}
+                    </button>
+                  ))}
+                </div>
                 <div className="space-y-4">
-                  {setupTemplates.map((tpl) => (
+                  {visibleTemplates.map((tpl) => (
                     <Card key={tpl.id}>
                       <CardHeader>
                         <CardTitle>{tpl.name}</CardTitle>
                         <CardDescription>{tpl.description}</CardDescription>
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                          {tpl.features.map((feature) => (
+                            <Badge key={feature} variant="outline" className="text-[11px] font-normal">
+                              {feature}
+                            </Badge>
+                          ))}
+                        </div>
                       </CardHeader>
                       <CardContent className="space-y-3">
-                        <CodeBlock code={tpl.toml} title={`${tpl.name} — setup.toml`} />
+                        <CodeBlock code={tpl.toml} title={`${tpl.name} — setup.toml`} filename={`setup-${tpl.id}.toml`} />
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="text-xs text-muted-foreground">
                             Paste into the Setup tab, then Dry run.
@@ -262,7 +303,7 @@ export default function SetupGuide() {
               </section>
             </div>
 
-            <aside className="space-y-6 lg:sticky lg:top-6 lg:self-start">
+            <aside className="min-w-0 space-y-6 lg:sticky lg:top-6 lg:self-start">
               <section>
                 <div className="mb-3 flex items-center gap-2">
                   <Terminal className="size-4 text-muted-foreground" />

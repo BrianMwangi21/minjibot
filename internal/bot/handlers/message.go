@@ -3,7 +3,9 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -25,12 +27,13 @@ type MessageHandlerDeps struct {
 }
 
 func RegisterMessageHandler(s *discordgo.Session, deps MessageHandlerDeps, cmdHandler *commands.CommandHandler) {
+	tracker := newSleepTracker()
 	s.AddHandler(func(s *discordgo.Session, m *discordgo.MessageCreate) {
-		onMessageCreate(s, m, deps, cmdHandler)
+		onMessageCreate(s, m, deps, cmdHandler, tracker)
 	})
 }
 
-func onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate, deps MessageHandlerDeps, cmdHandler *commands.CommandHandler) {
+func onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate, deps MessageHandlerDeps, cmdHandler *commands.CommandHandler, tracker *sleepTracker) {
 	// A panic in any command handler must not take down the whole bot.
 	defer safe.Recover(deps.Logger, "onMessageCreate")
 
@@ -97,11 +100,131 @@ func onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate, deps Mess
 
 	// Commands can be chained together with "&&", e.g. "-spark && -smoke".
 	// Each segment is trimmed and dispatched in order; a failing segment does
-	// not stop the remaining ones.
+	// not stop the remaining ones. A "sleep" segment pauses the chain for its
+	// duration, e.g. "-nsfw && -sleep 5s && -sfw".
+	key := sleepKey{guildID: m.GuildID, userID: m.Author.ID}
+
+	// A "-sleep" from an earlier message may still be pending for this
+	// (guild, user): wait out the remainder before their next command runs.
+	if rem := tracker.pop(key); rem > 0 {
+		time.Sleep(rem)
+	}
+
 	chain := strings.Split(m.Content, "&&")
 	for _, segment := range chain {
+		if delay, ok := sleepSegmentDelay(segment, prefix); ok {
+			if delay > 0 {
+				time.Sleep(delay)
+				tracker.set(key, delay)
+			}
+			continue
+		}
 		dispatchCommand(ctx, s, m, prefix, segment, cmdHandler)
 	}
+}
+
+// maxChainSleep caps how long a single "-sleep" segment may pause a command
+// chain, so a typo like "-sleep 1h" can't pin a handler goroutine for a long
+// stretch.
+const maxChainSleep = 5 * time.Minute
+
+// sleepSegmentDelay recognizes a "-sleep <duration>" segment within a command
+// chain and returns the pause it requests. It returns ok=false for any other
+// segment (including a malformed sleep) so normal dispatch handles it.
+func sleepSegmentDelay(segment, prefix string) (time.Duration, bool) {
+	seg := strings.TrimSpace(segment)
+	if !strings.HasPrefix(seg, prefix) {
+		return 0, false
+	}
+
+	fields := strings.Fields(strings.TrimPrefix(seg, prefix))
+	if len(fields) == 0 || !strings.EqualFold(fields[0], "sleep") {
+		return 0, false
+	}
+
+	var total time.Duration
+	for _, raw := range fields[1:] {
+		d, err := parseSleepDuration(raw)
+		if err != nil {
+			return 0, false
+		}
+		total += d
+		if total > maxChainSleep {
+			total = maxChainSleep
+		}
+	}
+	if total <= 0 {
+		return 0, false
+	}
+	return total, true
+}
+
+// sleepKey identifies the target of a pending sleep: a user in a guild (DMs
+// use an empty guild).
+type sleepKey struct {
+	guildID string
+	userID  string
+}
+
+// sleepTracker records pending "-sleep" deadlines per (guild, user) so a sleep
+// also delays that user's next command message in the same guild, not just the
+// rest of the current chain. Handlers run concurrently, so all access is
+// mutex-guarded.
+type sleepTracker struct {
+	mu        sync.Mutex
+	deadlines map[sleepKey]time.Time
+}
+
+func newSleepTracker() *sleepTracker {
+	return &sleepTracker{deadlines: make(map[sleepKey]time.Time)}
+}
+
+// pop returns the remaining wait for a key (0 if none or expired) and clears
+// it. The deadline is consumed by the first command that comes after it, so a
+// stale entry never lingers once that command runs.
+func (t *sleepTracker) pop(key sleepKey) time.Duration {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	deadline, ok := t.deadlines[key]
+	if !ok {
+		return 0
+	}
+	delete(t.deadlines, key)
+	if rem := time.Until(deadline); rem > 0 {
+		return rem
+	}
+	return 0
+}
+
+// set records a pending sleep deadline for a key.
+func (t *sleepTracker) set(key sleepKey, d time.Duration) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.deadlines[key] = time.Now().Add(d)
+	t.pruneLocked()
+}
+
+// pruneLocked drops expired entries so users who sleep and then never run
+// another command don't leak map entries indefinitely.
+func (t *sleepTracker) pruneLocked() {
+	now := time.Now()
+	for k, deadline := range t.deadlines {
+		if !deadline.After(now) {
+			delete(t.deadlines, k)
+		}
+	}
+}
+
+// parseSleepDuration parses a sleep argument: a Go duration such as "5s" or
+// "1m30s", or a bare number of seconds like "5".
+func parseSleepDuration(raw string) (time.Duration, error) {
+	if d, err := time.ParseDuration(raw); err == nil {
+		return d, nil
+	}
+	if secs, err := strconv.Atoi(raw); err == nil && secs > 0 {
+		return time.Duration(secs) * time.Second, nil
+	}
+	return 0, fmt.Errorf("invalid duration %q", raw)
 }
 
 // dispatchCommand runs a single command segment (already extracted from any

@@ -97,6 +97,27 @@ permission_overwrites = [
 ]`,
   },
   {
+    id: "rules",
+    title: "[rules]",
+    summary:
+      "Posts and pins a rules embed into a channel defined in [[channels]]. title, color (#RRGGBB), and message are optional; channel is required.",
+    snippet: `[rules]
+channel = "rules"
+title = "Community Rules"
+color = "#5865f2"
+message = """1. Be kind and respectful.
+2. No spam or self-promotion."""`,
+  },
+  {
+    id: "logging",
+    title: "[logging]",
+    summary:
+      "Wires the guild's logging settings: channel is where mod actions and deleted messages are posted; deleted_messages = true stores message content so deletions can be reconstructed.",
+    snippet: `[logging]
+channel = "mod-logs"
+deleted_messages = true`,
+  },
+  {
     id: "emojis",
     title: "[[emojis]]",
     summary: "Uploads an emoji from a public image URL (PNG/GIF/JPEG).",

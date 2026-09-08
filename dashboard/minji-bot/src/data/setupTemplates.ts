@@ -12,7 +12,7 @@ export const setupTemplates: SetupTemplate[] = [
     name: "Community server",
     description:
       "Roles for members and moderators, an announcements/rules/chat split, Community mode, onboarding prompts, and a channel permission command.",
-    features: ["Roles", "Permission locks", "Voice", "Announcements", "Community mode", "Onboarding", "Commands"],
+    features: ["Roles", "Permission locks", "Voice", "Announcements", "Community mode", "Onboarding", "Rules", "Logging", "Commands"],
     toml: `# Community server template
 # Roles, channels, Community mode, onboarding, then a command.
 
@@ -51,6 +51,11 @@ name = "General"
 type = "voice"
 parent = "Voice"
 
+[[channels]]
+name = "mod-logs"
+type = "text"
+topic = "Server actions and deleted messages are logged here."
+
 # Enabling Community mode points Discord's rules/announcements channels at the
 # channels created above.
 [community]
@@ -74,6 +79,20 @@ roles = ["Member"]
 [[onboarding.prompts.options]]
 title = "Moderator"
 roles = ["Moderator"]
+
+# A rules embed posted and pinned, and the logging channel that records server
+# actions plus deleted-message capture.
+[rules]
+channel = "rules"
+title = "Community Rules"
+color = "#5865f2"
+message = """1. Be kind and respectful to everyone.
+2. No spam, self-promotion, or NSFW content.
+3. Follow the moderators' instructions."""
+
+[logging]
+channel = "mod-logs"
+deleted_messages = true
 
 # Commands run last, after channels and roles exist.
 [[commands]]
@@ -149,7 +168,7 @@ args = "setperm {channel:memes} Member allow send"`,
     name: "Creator & brand",
     description:
       "An announcements channel, a subscriber tier, a fan-art channel, a forum feed, Community mode, and voice hangouts for watch parties.",
-    features: ["Roles", "Permission locks", "Voice", "Forum", "Announcements", "Community mode", "Onboarding"],
+    features: ["Roles", "Permission locks", "Voice", "Forum", "Announcements", "Community mode", "Onboarding", "Rules", "Logging"],
     toml: `# Creator & brand server template
 
 [server]
@@ -208,6 +227,11 @@ name = "Meet & Greet"
 type = "voice"
 parent = "Hangout"
 
+[[channels]]
+name = "mod-logs"
+type = "text"
+topic = "Server actions and deleted messages are logged here."
+
 [community]
 rules_channel = "rules"
 updates_channel = "announcements"
@@ -228,7 +252,21 @@ roles = ["Viewer"]
 
 [[onboarding.prompts.options]]
 title = "Subscriber"
-roles = ["Subscriber"]`,
+roles = ["Subscriber"]
+
+# A rules embed posted and pinned, plus logging for server actions and deleted
+# messages.
+[rules]
+channel = "rules"
+title = "Studio Rules"
+color = "#f47fff"
+message = """1. Be respectful to cast and crew.
+2. Fan art and clips are welcome in #fan-art.
+3. No spoilers outside their marked channels."""
+
+[logging]
+channel = "mod-logs"
+deleted_messages = true`,
   },
   {
     id: "study",
@@ -325,7 +363,7 @@ roles = ["TA"]`,
     name: "Dev community",
     description:
       "A help forum, code-review channel, announcements, a private moderator-only staff channel, community mode, and a stack-picker onboarding prompt.",
-    features: ["Roles", "Permission locks", "Voice", "Forum", "Announcements", "Community mode", "Onboarding", "Commands"],
+    features: ["Roles", "Permission locks", "Voice", "Forum", "Announcements", "Community mode", "Onboarding", "Rules", "Logging", "Commands"],
     toml: `# Dev / tech community template
 
 [server]
@@ -392,6 +430,11 @@ permission_overwrites = [
   { target = "role:Moderator", allow = ["view", "send", "manage"] },
 ]
 
+[[channels]]
+name = "mod-logs"
+type = "text"
+topic = "Server actions and deleted messages are logged here."
+
 [community]
 rules_channel = "rules"
 updates_channel = "announcements"
@@ -412,6 +455,20 @@ roles = ["Member"]
 title = "Backend"
 roles = ["Developer"]
 
+# A rules embed posted and pinned, plus logging for server actions and deleted
+# messages.
+[rules]
+channel = "rules"
+title = "Dev Lounge Rules"
+color = "#00b0f4"
+message = """1. Help others and be patient with newcomers.
+2. No scratching, social posts belong in #general.
+3. Use #help for questions and #code-review for reviews."""
+
+[logging]
+channel = "mod-logs"
+deleted_messages = true
+
 [[commands]]
 cmd = "channel"
 args = "setperm {channel:general} Member allow send"`,
@@ -421,7 +478,7 @@ args = "setperm {channel:general} Member allow send"`,
     name: "Business workspace",
     description:
       "Team voice rooms, a standup channel, a leadership-only channel, and an onboarding prompt to pick your team.",
-    features: ["Roles", "Permission locks", "Voice", "Announcements", "Onboarding"],
+    features: ["Roles", "Permission locks", "Voice", "Announcements", "Onboarding", "Rules", "Logging"],
     toml: `# Business / team workspace template
 
 [server]
@@ -447,6 +504,11 @@ permissions = ["administrator"]
 [[channels]]
 name = "announcements"
 type = "announcement"
+
+[[channels]]
+name = "rules"
+type = "text"
+permission_overwrites = [ { target = "role:Staff", allow = ["view", "history"], deny = ["send"] } ]
 
 [[channels]]
 name = "general"
@@ -489,6 +551,11 @@ name = "Marketing"
 type = "voice"
 parent = "Team Rooms"
 
+[[channels]]
+name = "mod-logs"
+type = "text"
+topic = "Server actions and deleted messages are logged here."
+
 [onboarding]
 enabled = true
 default_channels = ["general"]
@@ -507,7 +574,21 @@ roles = ["Staff"]
 
 [[onboarding.prompts.options]]
 title = "Marketing"
-roles = ["Staff"]`,
+roles = ["Staff"]
+
+# A rules embed posted and pinned, plus logging for server actions and deleted
+# messages.
+[rules]
+channel = "rules"
+title = "Workspace Rules"
+color = "#2ecc71"
+message = """1. Keep communication professional.
+2. Deliveries and blockers go in #standup.
+3. Company-wide news runs through #announcements."""
+
+[logging]
+channel = "mod-logs"
+deleted_messages = true`,
   },
   {
     id: "ultimate",
@@ -524,6 +605,8 @@ roles = ["Staff"]`,
       "Onboarding",
       "Emojis",
       "Stickers",
+      "Rules",
+      "Logging",
       "Commands",
     ],
     toml: `# Everything template - exercises every provisioning feature
@@ -593,6 +676,11 @@ permission_overwrites = [
   { target = "role:VIP", allow = ["view", "connect"] },
 ]
 
+[[channels]]
+name = "mod-logs"
+type = "text"
+topic = "Server actions and deleted messages are logged here."
+
 # Emojis/stickers upload from a public image URL - swap the URLs below for
 # real image files before running (placeholders will fail that step).
 [[emojis]]
@@ -633,6 +721,21 @@ in_onboarding = true
 [[onboarding.prompts.options]]
 title = "I'd like VIP"
 roles = ["VIP"]
+
+# A rules embed posted and pinned, plus logging for server actions and deleted
+# messages.
+[rules]
+channel = "rules"
+title = "Ultimate Server Rules"
+color = "#f1c40f"
+message = """1. Treat everyone with respect.
+2. Memes go in #memes, chatter in #lounge.
+3. No promotions or solicitation.
+4. VIP members may send in #rules; everyone else reads only."""
+
+[logging]
+channel = "mod-logs"
+deleted_messages = true
 
 [[commands]]
 cmd = "channel"

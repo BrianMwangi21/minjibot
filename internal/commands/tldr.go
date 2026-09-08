@@ -103,6 +103,7 @@ var tldrEntries = map[string]TldrEntry{
 	"sfw":             {"sfw", "`sfw`", "Unmark the current channel as NSFW. Requires a moderation permission."},
 	"slowmode":        {"slowmode", "`slowmode <seconds>`", "Set a slowmode on the current channel. Requires a moderation permission."},
 	"topic":           {"topic", "`topic <text>`", "Set the topic of the current channel. Requires a moderation permission."},
+	"channel":         {"channel", "`channel create|edit|setperm|info [options]`", "Create channels and modify their rules: create new text/voice/category channels, rename them, set topics, slowmode, NSFW, and allow/deny permissions for roles. Requires a moderation permission."},
 	"denyperm":        {"denyperm", "`denyperm <user|role> <perm> [channel]`", "Deny a permission to a user or role in a channel. Requires a moderation permission."},
 	"imute":           {"imute", "`imute <user>`", "Prevent a user from sending images in this channel. Requires a moderation permission."},
 	"gifmute":         {"gifmute", "`gifmute <user>`", "Prevent a user from sending images, GIFs, and embeds in this channel. Requires a moderation permission."},

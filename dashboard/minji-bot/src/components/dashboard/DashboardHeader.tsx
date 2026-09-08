@@ -25,6 +25,12 @@ export function DashboardHeader() {
             Commands
           </Link>
           <Link
+            to="/dashboard"
+            className="transition-colors hover:text-foreground"
+          >
+            Guilds
+          </Link>
+          <Link
             to="/dashboard/diary"
             className="transition-colors hover:text-foreground"
           >
@@ -36,9 +42,19 @@ export function DashboardHeader() {
           >
             Profile
           </Link>
-          <span className="hidden truncate text-xs text-muted-foreground sm:inline">
-            {me.status === "authenticated" ? me.user.email : ""}
-          </span>
+          {me.status === "authenticated" && (
+            <span className="hidden items-center gap-2 text-xs text-muted-foreground sm:inline-flex">
+              {me.user.avatar && (
+                <img
+                  src={me.user.avatar}
+                  alt=""
+                  className="size-6 rounded-full"
+                  referrerPolicy="no-referrer"
+                />
+              )}
+              <span className="truncate">{me.user.username}</span>
+            </span>
+          )}
           <a
             href={apiUrl("/api/auth/logout")}
             className={cn(buttonVariants({ variant: "outline" }))}

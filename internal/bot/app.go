@@ -94,6 +94,12 @@ func NewApp() (*App, error) {
 	return app, nil
 }
 
+// CommandHandler exposes the bot's command handler for reuse by the API (server
+// setup passthrough runs commands through it).
+func (a *App) CommandHandler() *commands.CommandHandler {
+	return a.cmdHandler
+}
+
 func (a *App) RegisterHandlers() {
 	// Identify required gateway intents (adjust based on your bot's needs)
 	a.Session.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMessages | discordgo.IntentMessageContent | discordgo.IntentsGuildMessageReactions
@@ -122,6 +128,13 @@ func (a *App) RegisterHandlers() {
 				a.Logger.Info("Registered slash command", "command", cmd.Name)
 			}
 		}
+	})
+
+	// Guild create handler — record the guild the moment the bot joins it so
+	// the dashboard picker shows new servers immediately.
+	handlers.RegisterGuildHandler(a.Session, handlers.GuildHandlerDeps{
+		Logger:    a.Logger,
+		GuildRepo: a.GuildRepo,
 	})
 
 	// Message handler

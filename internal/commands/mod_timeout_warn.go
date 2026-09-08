@@ -34,6 +34,9 @@ func timeoutMessageCommandHandler(h *CommandHandler, s *discordgo.Session, m *di
 	reason := strings.Join(args[2:], " ")
 	until := time.Now().Add(dur)
 	if err := s.GuildMemberTimeout(m.GuildID, targetID, &until); err != nil {
+		if isForbiddenErr(err) {
+			return sendModError(s, m.ChannelID, "Timeout", hierarchyModMessage("timeout", "Timeout Members"))
+		}
 		return sendModError(s, m.ChannelID, "Timeout", fmt.Sprintf("Failed to timeout %s: %s", name, err))
 	}
 	logModAction(h, s, m.GuildID, "TIMEOUT", m.Author.ID, m.Author.Username, targetID, name, map[string]any{"duration": dur.String(), "reason": reason})
@@ -75,9 +78,13 @@ func timeoutSlashCommandHandler(h *CommandHandler, s *discordgo.Session, i *disc
 	}
 	until := time.Now().Add(dur)
 	if err := s.GuildMemberTimeout(i.GuildID, targetID, &until); err != nil {
+		msg := fmt.Sprintf("Failed to timeout %s: %s", name, err)
+		if isForbiddenErr(err) {
+			msg = hierarchyModMessage("timeout", "Timeout Members")
+		}
 		return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{Embeds: []*discordgo.MessageEmbed{modErrorEmbed("Timeout", fmt.Sprintf("Failed to timeout %s: %s", name, err))}},
+			Data: &discordgo.InteractionResponseData{Embeds: []*discordgo.MessageEmbed{modErrorEmbed("Timeout", msg)}},
 		})
 	}
 	logModAction(h, s, i.GuildID, "TIMEOUT", i.Member.User.ID, i.Member.User.Username, targetID, name, map[string]any{"duration": dur.String(), "reason": reason})

@@ -105,6 +105,10 @@ func HelpSections() []HelpSection {
 			{"staffstrip <user>", "Remove all staff roles from a user"},
 		}},
 		{Name: "Moderation — Channels", Items: [][2]string{
+			{"channel create <name> [type] [topic]", "Create a text, voice, or category channel"},
+			{"channel edit [channel] <rule> <value>", "Rename / set topic / slowmode / NSFW on a channel"},
+			{"channel setperm [channel] <role> <allow|deny> <perm>", "Allow or deny a channel permission"},
+			{"channel info [channel]", "Show channel details"},
 			{"purge <count> [user]", "Delete recent messages, optionally only from a user"},
 			{"nuke", "Delete all messages by cloning the current channel"},
 			{"hide", "Hide the current channel from @everyone"},

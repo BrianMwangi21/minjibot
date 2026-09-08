@@ -3,7 +3,9 @@ package commands
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -64,6 +66,28 @@ func hasAnyPerm(perms int64, wanted ...int64) bool {
 		}
 	}
 	return false
+}
+
+// isForbiddenErr reports whether err is a Discord REST 403 (for example
+// "Missing Permissions").
+func isForbiddenErr(err error) bool {
+	var re *discordgo.RESTError
+	if errors.As(err, &re) {
+		return re.Response != nil && re.Response.StatusCode == http.StatusForbidden
+	}
+	return false
+}
+
+// hierarchyModMessage explains a Discord 403 on a member-management action
+// (kick/ban/timeout/role changes). Discord reports both a missing permission
+// and a role hierarchy violation (the target's highest role at or above the
+// bot's, which blocks even Administrator) as the same 50013 error, so we
+// surface both causes and suggest the common role-ordering fix.
+func hierarchyModMessage(action, perm string) string {
+	return fmt.Sprintf(
+		"Discord refused the **%s** with *Missing Permissions*. Either I lack the **%s** permission, or — more commonly — the target's highest role is **at or above mine**, which blocks me even with Administrator.\n\nFix: Server Settings → Roles → drag my role to the **top** of the list (just below the owner) so I sit above everyone else.",
+		action, perm,
+	)
 }
 
 // requireModerator checks that a slash-command invoker holds moderation

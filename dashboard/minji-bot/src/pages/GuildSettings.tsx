@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react"
-import { useParams, Link } from "react-router-dom"
-import { ArrowLeft, Loader2 } from "lucide-react"
+import { useParams } from "react-router-dom"
+import { Loader2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { DashboardHeader } from "@/components/dashboard/DashboardHeader"
 import { apiUrl } from "@/lib/api"
 import { useCurrentUser } from "@/lib/useCurrentUser"
 
@@ -32,8 +31,6 @@ export default function GuildSettings() {
   useEffect(() => {
     if (me.status !== "authenticated" || !guildId) return
     let cancelled = false
-    setLoading(true)
-    setError(null)
 
     fetch(apiUrl(`/api/guilds/${guildId}/settings`), {
       credentials: "include",
@@ -105,17 +102,8 @@ export default function GuildSettings() {
   }
 
   return (
-    <div className="min-h-screen bg-background font-sans antialiased">
-      <DashboardHeader />
-      <main className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
+    <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
         <div className="mb-6">
-          <Link
-            to={`/dashboard/guild/${guildId}`}
-            className={buttonVariants({ variant: "ghost", size: "sm" }) + " mb-2 -ml-2"}
-          >
-            <ArrowLeft className="mr-1 size-4" />
-            Back to logs
-          </Link>
           <h1 className="mb-1 font-heading text-3xl font-bold tracking-tight text-foreground">
             Server settings
           </h1>
@@ -229,7 +217,6 @@ export default function GuildSettings() {
             </CardContent>
           </Card>
         )}
-      </main>
     </div>
   )
 }

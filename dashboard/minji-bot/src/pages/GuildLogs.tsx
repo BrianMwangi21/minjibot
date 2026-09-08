@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react"
-import { useParams, Link } from "react-router-dom"
-import { ArrowLeft, Loader2 } from "lucide-react"
+import { useParams } from "react-router-dom"
+import { Loader2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { DashboardHeader } from "@/components/dashboard/DashboardHeader"
 import { apiUrl } from "@/lib/api"
 import { useCurrentUser } from "@/lib/useCurrentUser"
 
@@ -60,6 +59,7 @@ export default function GuildLogs() {
   const { guildId } = useParams<{ guildId: string }>()
   const me = useCurrentUser()
 
+  const [guildName, setGuildName] = useState<string | null>(null)
   const [deleted, setDeleted] = useState<PageResponse<DeletedMessage> | null>(null)
   const [actions, setActions] = useState<PageResponse<ModAction> | null>(null)
   const [loading, setLoading] = useState(true)
@@ -68,8 +68,16 @@ export default function GuildLogs() {
   useEffect(() => {
     if (me.status !== "authenticated" || !guildId) return
     let cancelled = false
-    setLoading(true)
-    setError(null)
+
+    fetch(apiUrl("/api/guilds"), { credentials: "include", headers: { Accept: "application/json" } })
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`${res.status}`)
+        const guilds = (await res.json()) as { id: string; name: string }[]
+        if (!cancelled) setGuildName(guilds.find((g) => g.id === guildId)?.name ?? null)
+      })
+      .catch(() => {
+        if (!cancelled) setGuildName(null)
+      })
 
     Promise.all([
       fetch(apiUrl(`/api/logs/deleted?guild_id=${guildId}`), {
@@ -108,32 +116,16 @@ export default function GuildLogs() {
   }, [me.status, guildId])
 
   return (
-    <div className="min-h-screen bg-background font-sans antialiased">
-      <DashboardHeader />
-      <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-        <div className="mb-6">
-          <Link
-            to="/dashboard"
-            className={buttonVariants({ variant: "ghost", size: "sm" }) + " mb-2 -ml-2"}
-          >
-            <ArrowLeft className="mr-1 size-4" />
-            Back to guilds
-          </Link>
-<div className="flex items-center justify-between gap-4">
-            <div>
-              <h1 className="mb-1 font-heading text-3xl font-bold tracking-tight text-foreground">
-                Logs
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                Deleted messages and moderation actions for <code className="font-mono text-xs">{guildId}</code>.
-              </p>
-            </div>
-            <Link
-              to={`/dashboard/guild/${guildId}/settings`}
-              className={buttonVariants({ variant: "outline", size: "sm" })}
-            >
-              Settings
-            </Link>
+    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+        <div className="mb-6 flex items-center justify-between gap-4">
+          <div>
+            <h1 className="mb-1 font-heading text-3xl font-bold tracking-tight text-foreground">
+              Logs
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Deleted messages and moderation actions for{" "}
+              <code className="font-mono text-xs">{guildName || guildId}</code>.
+            </p>
           </div>
         </div>
 
@@ -267,7 +259,6 @@ export default function GuildLogs() {
             </TabsContent>
           </Tabs>
         )}
-      </main>
     </div>
   )
 }

@@ -12,7 +12,10 @@ type NavLink = { kind: "route"; to: string; label: string }
 
 type NavAnchor = { kind: "anchor"; href: string; label: string }
 
-const NAV_ROUTES: NavLink[] = [{ kind: "route", to: "/commands", label: "Commands" }]
+const NAV_ROUTES: NavLink[] = [
+  { kind: "route", to: "/commands", label: "Commands" },
+  { kind: "route", to: "/setup", label: "Setup" },
+]
 
 const NAV_ANCHORS: NavAnchor[] = [
   { kind: "anchor", href: "#features", label: "Features" },

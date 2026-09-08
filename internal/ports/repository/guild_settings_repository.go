@@ -2,7 +2,9 @@ package repository
 
 import (
 	"context"
+	"errors"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/kibetnathan/minjibot/infrastructure/postgres"
 	"github.com/kibetnathan/minjibot/internal/domain/guildsettings"
@@ -28,6 +30,9 @@ func NewGuildSettingsRepository(store *SQLStore) GuildSettingsRepository {
 func (r *sqlGuildSettingsRepository) Get(ctx context.Context, guildID string) (guildsettings.GuildSettings, error) {
 	settings, err := r.store.queries.GetGuildSettings(ctx, guildID)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return guildsettings.GuildSettings{}, nil
+		}
 		return guildsettings.GuildSettings{}, err
 	}
 

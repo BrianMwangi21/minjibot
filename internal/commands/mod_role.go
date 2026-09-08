@@ -87,6 +87,9 @@ func roleAddMessage(h *CommandHandler, s *discordgo.Session, m *discordgo.Messag
 		return sendModError(s, m.ChannelID, "Role add", err.Error())
 	}
 	if err := s.GuildMemberRoleAdd(m.GuildID, memberID, role.ID); err != nil {
+		if isForbiddenErr(err) {
+			return sendModError(s, m.ChannelID, "Role add", hierarchyModMessage("role assignment", "Manage Roles"))
+		}
 		return sendModError(s, m.ChannelID, "Role add", fmt.Sprintf("Failed to add role: %s", err))
 	}
 	auditAction(h, context.Background(), m.GuildID, "ROLE_ADD", m.Author.ID, memberID, map[string]any{"role": role.ID, "role_name": role.Name})
@@ -105,9 +108,13 @@ func roleAddSlash(h *CommandHandler, s *discordgo.Session, i *discordgo.Interact
 		})
 	}
 	if err := s.GuildMemberRoleAdd(i.GuildID, memberID, role.ID); err != nil {
+		msg := fmt.Sprintf("Failed to add role: %s", err)
+		if isForbiddenErr(err) {
+			msg = hierarchyModMessage("role assignment", "Manage Roles")
+		}
 		return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{Embeds: []*discordgo.MessageEmbed{modErrorEmbed("Role add", fmt.Sprintf("Failed to add role: %s", err))}},
+			Data: &discordgo.InteractionResponseData{Embeds: []*discordgo.MessageEmbed{modErrorEmbed("Role add", msg)}},
 		})
 	}
 	auditAction(h, context.Background(), i.GuildID, "ROLE_ADD", i.Member.User.ID, memberID, map[string]any{"role": role.ID, "role_name": role.Name})

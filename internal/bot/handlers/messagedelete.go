@@ -180,19 +180,7 @@ func onMessageDeleteBulk(s *discordgo.Session, m *discordgo.MessageDeleteBulk, d
 }
 
 func ensureGuild(ctx context.Context, deps MessageDeleteHandlerDeps, guildID string) error {
-	_, err := deps.GuildRepo.GetByID(ctx, guildID)
-	if err != nil {
-		_, err = deps.GuildRepo.Create(ctx, dto.CreateGuildParams{
-			ID:          guildID,
-			Name:        "",
-			PremiumTier: 0,
-		})
-		if err != nil {
-			deps.Logger.Error("Failed to create guild during delete logging", "error", err, "guild_id", guildID)
-			return fmt.Errorf("create guild: %w", err)
-		}
-	}
-	return nil
+	return ensureGuildRecord(ctx, deps.GuildRepo, deps.Logger, guildID, "", 0)
 }
 
 // logChannel resolves the guild's configured logging channel from settings, if

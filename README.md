@@ -192,6 +192,14 @@ Dashboard (React) → /api/* ─────────────────
 | GET | `/api/guilds` | Session | List guilds with counts |
 | GET | `/api/logs/deleted?guild_id=` | Session | Deleted messages (paginated) |
 | GET | `/api/logs/actions?guild_id=` | Session | Mod actions (paginated) |
+| GET | `/api/guilds/:guildId/settings` | Session | Guild settings (prefix, language, log channel, etc.) |
+| PUT | `/api/guilds/:guildId/settings` | Session | Update guild settings |
+| POST | `/api/guilds/:guildId/setup` | Session | Provision a guild from a TOML document |
+| POST | `/api/guilds/:guildId/setup/dry-run` | Session | Validate a TOML document without applying |
+| GET | `/api/guilds/:guildId/channels` | Session | Channels for the setup notify-channel picker |
+| GET | `/api/diary` | Session | List the user's diary entries |
+| POST | `/api/diary` | Session | Save a diary entry |
+| DELETE | `/api/diary/:entryId` | Session | Delete a diary entry |
 
 ## Dashboard routes
 
@@ -199,8 +207,13 @@ Dashboard (React) → /api/* ─────────────────
 | --- | --- |
 | `/` | Landing page |
 | `/commands` | Command reference |
+| `/setup` | Server setup guide with TOML templates |
 | `/dashboard` | Guild picker with logging stats |
 | `/dashboard/guild/:id` | Deleted messages + mod actions for a guild |
+| `/dashboard/guild/:id/settings` | Per-guild settings (prefix, language, log channel, auto-moderation) |
+| `/dashboard/guild/:id/setup` | Server setup provisioning (dry-run + apply) |
+| `/dashboard/profile` | User profile page |
+| `/dashboard/diary` | Private diary entries |
 | `/login` | Login page |
 | `/signup` | Sign up page |
 
@@ -215,6 +228,18 @@ The bot supports ~100+ commands across these categories:
 - **Information** — avatar, banner, botinfo, guild stats, help, weather
 
 See `features.md` for the full command reference.
+
+## Non-command features
+
+Beyond the ~100+ commands, MinjiBot ships a set of features that are not single commands:
+
+- **Server setup provisioning** — a single TOML document provisions a fresh server: roles, channels (with permission overwrites), emojis/stickers, Community mode, onboarding, a posted-and-pinned rules embed, logging settings, and command passthrough. Admin-gated, dry-run validated, and guarded against servers that already look live.
+- **Logging & audit** — deleted-message content (opt-in, 30-day retention, background pruner) and moderation actions are recorded to the database and mirrored to a per-guild log channel.
+- **Guild settings** — per-guild prefix, language, auto-moderation toggle, and logging channel, editable via the dashboard or `-setup` commands.
+- **Donation prompt** — a support card surfaces every 13-15 commands that are not moderation actions.
+- **Dashboard & website** — Discord OAuth dashboard (guild picker, logs, settings, setup) plus a public site with a command reference and setup guide.
+
+See `features.md` §10 for the full reference.
 
 ## Deployment
 

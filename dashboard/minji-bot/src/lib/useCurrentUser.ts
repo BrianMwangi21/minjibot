@@ -4,6 +4,8 @@ import { apiUrl } from "@/lib/api"
 export type CurrentUser = {
   id: string
   email: string
+  username: string
+  avatar: string
   is_admin: boolean
 }
 
@@ -20,7 +22,6 @@ export function useCurrentUser(enabled = true): State {
 
   useEffect(() => {
     if (!enabled) {
-      setState({ status: "unauthenticated" })
       return
     }
 
@@ -51,5 +52,5 @@ export function useCurrentUser(enabled = true): State {
     }
   }, [enabled])
 
-  return state
+  return enabled ? state : { status: "unauthenticated" }
 }

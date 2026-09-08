@@ -30,6 +30,9 @@ func purgeMessageCommandHandler(h *CommandHandler, s *discordgo.Session, m *disc
 
 	deleted, err := purgeMessages(s, m.ChannelID, count, filterID)
 	if err != nil {
+		if isForbiddenErr(err) {
+			return sendModError(s, m.ChannelID, "Purge", "I'm missing a permission needed to purge in this channel/server: I need **View Channel** and **Manage Messages** here (or **Administrator** on my role).")
+		}
 		return sendModError(s, m.ChannelID, "Purge", fmt.Sprintf("Failed to purge messages: %s", err))
 	}
 	logModAction(h, s, m.GuildID, "PURGE", m.Author.ID, m.Author.Username, m.ChannelID, "", map[string]any{"count": deleted, "filter": filterID})
@@ -61,6 +64,12 @@ func purgeSlashCommandHandler(h *CommandHandler, s *discordgo.Session, i *discor
 
 	deleted, err := purgeMessages(s, i.ChannelID, count, filterID)
 	if err != nil {
+		if isForbiddenErr(err) {
+			return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{Embeds: []*discordgo.MessageEmbed{modErrorEmbed("Purge", "I'm missing a permission needed to purge in this channel/server: I need **View Channel** and **Manage Messages** here (or **Administrator** on my role).")}},
+			})
+		}
 		return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{Embeds: []*discordgo.MessageEmbed{modErrorEmbed("Purge", fmt.Sprintf("Failed to purge messages: %s", err))}},
@@ -126,10 +135,21 @@ func bulkDeleteBatch(s *discordgo.Session, channelID string, n int, beforeID str
 	}
 	// Do not delete messages older than 14 days (Discord rejects them).
 	if err := s.ChannelMessagesBulkDelete(channelID, ids); err != nil {
-		// Fall back to individual deletes on permission/age errors.
+		// Fall back to individual deletes on permission/age errors, counting
+		// the ones that actually succeeded. Individual deletes work on
+		// messages of any age, so a total failure here means the bot lacks
+		// Manage Messages — surface the real reason instead of a fake success.
+		removed := 0
 		for _, msg := range messages {
-			_ = s.ChannelMessageDelete(channelID, msg.ID)
+			if cerr := s.ChannelMessageDelete(channelID, msg.ID); cerr == nil {
+				removed++
+			}
 		}
+		if removed == 0 {
+			return 0, "", err
+		}
+		oldest := messages[len(messages)-1].ID
+		return removed, oldest, nil
 	}
 	oldest := messages[len(messages)-1].ID
 	return len(messages), oldest, nil
@@ -184,6 +204,9 @@ func nukeSlashCommandHandler(h *CommandHandler, s *discordgo.Session, i *discord
 func nukeChannel(s *discordgo.Session, channelID, guildID, actorID string, h *CommandHandler) error {
 	ch, err := s.Channel(channelID)
 	if err != nil {
+		if isForbiddenErr(err) {
+			return sendModError(s, channelID, "Nuke", "I can't view this channel. I need **View Channel** here (or **Administrator** on my role).")
+		}
 		return sendModError(s, channelID, "Nuke", fmt.Sprintf("Could not fetch the channel: %s", err))
 	}
 	isThread := ch.Type == discordgo.ChannelTypeGuildNewsThread || ch.Type == discordgo.ChannelTypeGuildPublicThread || ch.Type == discordgo.ChannelTypeGuildPrivateThread
@@ -205,6 +228,9 @@ func nukeChannel(s *discordgo.Session, channelID, guildID, actorID string, h *Co
 	}
 	newCh, err := s.GuildChannelCreateComplex(guildID, clone)
 	if err != nil {
+		if isForbiddenErr(err) {
+			return sendModError(s, channelID, "Nuke", "I'm missing a permission needed to nuke: I need **Manage Channels** in this server (or **Administrator** on my role).")
+		}
 		return sendModError(s, channelID, "Nuke", fmt.Sprintf("Failed to clone the channel: %s", err))
 	}
 	if _, err := s.ChannelDelete(channelID); err != nil {

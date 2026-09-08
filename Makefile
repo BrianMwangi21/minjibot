@@ -23,16 +23,16 @@ integration-test:
 	@echo "Running integration tests ..."
 	cd integration_tests && go test -v -count=1
 
-run:
-	@echo "Starting Go application..."
-	go run .
+run: ## Start the full service: API + Discord bot (unified binary)
+	@echo "Starting MinjiBot (API + bot)..."
+	go run ./cmd
 
-run-api:
-	@echo "Starting API server on :8080..."
+run-api: ## Start only the API server on :8080 (setup endpoints report 503 without the bot)
+	@echo "Starting API server on :8080 (no bot)..."
 	go run ./cmd/api
 
-run-bot:
-	@echo "Starting Discord bot..."
+run-bot: ## Start only the Discord bot (no HTTP API)
+	@echo "Starting Discord bot (no API)..."
 	go run ./cmd/bot
 
 ngrok:

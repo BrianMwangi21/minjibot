@@ -70,6 +70,33 @@ func TestCommandHandlerDispatchUnknown(t *testing.T) {
 	}
 }
 
+func TestIsModerationCommand(t *testing.T) {
+	for _, cmd := range []string{"ban", "kick", "purge", "warn", "jail", "nick", "role", "channel", "gifmute"} {
+		if !commands.IsModerationCommand(cmd) {
+			t.Errorf("expected %q to be classified as moderation", cmd)
+		}
+	}
+	for _, cmd := range []string{"ping", "help", "donate", "echo", "search", "quote", "ttys"} {
+		if commands.IsModerationCommand(cmd) {
+			t.Errorf("expected %q not to be classified as moderation", cmd)
+		}
+	}
+}
+
+func TestDonatePromptCadence(t *testing.T) {
+	h := commands.NewCommandHandler(nil, nil, nil, nil, nil, nil, nil, nil)
+
+	due := 0
+	for i := 0; i < 1000; i++ {
+		if h.DonatePromptDue() {
+			due++
+		}
+	}
+	if due < 1000/15 || due > 1000/13+2 {
+		t.Errorf("donation prompt surfaced %d times in 1000 cadences (want ~67-77)", due)
+	}
+}
+
 func slashInteraction(name string) *discordgo.InteractionCreate {
 	return &discordgo.InteractionCreate{
 		Interaction: &discordgo.Interaction{

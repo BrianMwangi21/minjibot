@@ -25,6 +25,9 @@ func banMessageCommandHandler(h *CommandHandler, s *discordgo.Session, m *discor
 	reason := strings.Join(args[1:], " ")
 
 	if err := s.GuildBanCreateWithReason(m.GuildID, targetID, reason, 0); err != nil {
+		if isForbiddenErr(err) {
+			return sendModError(s, m.ChannelID, "Ban", hierarchyModMessage("ban", "Ban Members"))
+		}
 		return sendModError(s, m.ChannelID, "Ban", fmt.Sprintf("Failed to ban %s: %s", name, err))
 	}
 	logModAction(h, s, m.GuildID, "BAN", m.Author.ID, m.Author.Username, targetID, name, map[string]any{"reason": reason})
@@ -55,9 +58,13 @@ func banSlashCommandHandler(h *CommandHandler, s *discordgo.Session, i *discordg
 		return nil
 	}
 	if err := s.GuildBanCreateWithReason(i.GuildID, targetID, reason, 0); err != nil {
+		msg := fmt.Sprintf("Failed to ban %s: %s", name, err)
+		if isForbiddenErr(err) {
+			msg = hierarchyModMessage("ban", "Ban Members")
+		}
 		return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{Embeds: []*discordgo.MessageEmbed{modErrorEmbed("Ban", fmt.Sprintf("Failed to ban %s: %s", name, err))}},
+			Data: &discordgo.InteractionResponseData{Embeds: []*discordgo.MessageEmbed{modErrorEmbed("Ban", msg)}},
 		})
 	}
 	logModAction(h, s, i.GuildID, "BAN", i.Member.User.ID, i.Member.User.Username, targetID, name, map[string]any{"reason": reason})
@@ -84,6 +91,9 @@ func hardbanMessageCommandHandler(h *CommandHandler, s *discordgo.Session, m *di
 	}
 	reason := strings.Join(args[1:], " ")
 	if err := s.GuildBanCreateWithReason(m.GuildID, targetID, reason, 7); err != nil {
+		if isForbiddenErr(err) {
+			return sendModError(s, m.ChannelID, "Hard Ban", hierarchyModMessage("hard-ban", "Ban Members"))
+		}
 		return sendModError(s, m.ChannelID, "Hard Ban", fmt.Sprintf("Failed to hard-ban %s: %s", name, err))
 	}
 	logModAction(h, s, m.GuildID, "HARDBAN", m.Author.ID, m.Author.Username, targetID, name, map[string]any{"reason": reason})
@@ -113,9 +123,13 @@ func hardbanSlashCommandHandler(h *CommandHandler, s *discordgo.Session, i *disc
 		return nil
 	}
 	if err := s.GuildBanCreateWithReason(i.GuildID, targetID, reason, 7); err != nil {
+		msg := fmt.Sprintf("Failed to hard-ban %s: %s", name, err)
+		if isForbiddenErr(err) {
+			msg = hierarchyModMessage("hard-ban", "Ban Members")
+		}
 		return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{Embeds: []*discordgo.MessageEmbed{modErrorEmbed("Hard Ban", fmt.Sprintf("Failed to hard-ban %s: %s", name, err))}},
+			Data: &discordgo.InteractionResponseData{Embeds: []*discordgo.MessageEmbed{modErrorEmbed("Hard Ban", msg)}},
 		})
 	}
 	logModAction(h, s, i.GuildID, "HARDBAN", i.Member.User.ID, i.Member.User.Username, targetID, name, map[string]any{"reason": reason})
@@ -142,9 +156,15 @@ func softbanMessageCommandHandler(h *CommandHandler, s *discordgo.Session, m *di
 	}
 	reason := strings.Join(args[1:], " ")
 	if err := s.GuildBanCreateWithReason(m.GuildID, targetID, reason, 1); err != nil {
+		if isForbiddenErr(err) {
+			return sendModError(s, m.ChannelID, "Soft Ban", hierarchyModMessage("soft-ban", "Ban Members"))
+		}
 		return sendModError(s, m.ChannelID, "Soft Ban", fmt.Sprintf("Failed to soft-ban %s: %s", name, err))
 	}
 	if err := s.GuildBanDelete(m.GuildID, targetID); err != nil {
+		if isForbiddenErr(err) {
+			return sendModError(s, m.ChannelID, "Soft Ban", "Discord refused the **unban** with *Missing Permissions* — I need the **Ban Members** permission.")
+		}
 		return sendModError(s, m.ChannelID, "Soft Ban", fmt.Sprintf("Unbanned **%s** but could not remove the ban record: %s", name, err))
 	}
 	logModAction(h, s, m.GuildID, "SOFTBAN", m.Author.ID, m.Author.Username, targetID, name, map[string]any{"reason": reason})
@@ -174,15 +194,23 @@ func softbanSlashCommandHandler(h *CommandHandler, s *discordgo.Session, i *disc
 		return nil
 	}
 	if err := s.GuildBanCreateWithReason(i.GuildID, targetID, reason, 1); err != nil {
+		msg := fmt.Sprintf("Failed to soft-ban %s: %s", name, err)
+		if isForbiddenErr(err) {
+			msg = hierarchyModMessage("soft-ban", "Ban Members")
+		}
 		return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{Embeds: []*discordgo.MessageEmbed{modErrorEmbed("Soft Ban", fmt.Sprintf("Failed to soft-ban %s: %s", name, err))}},
+			Data: &discordgo.InteractionResponseData{Embeds: []*discordgo.MessageEmbed{modErrorEmbed("Soft Ban", msg)}},
 		})
 	}
 	if err := s.GuildBanDelete(i.GuildID, targetID); err != nil {
+		msg := fmt.Sprintf("Unbanned **%s** but could not remove the ban record: %s", name, err)
+		if isForbiddenErr(err) {
+			msg = "Discord refused the **unban** with *Missing Permissions* — I need the **Ban Members** permission."
+		}
 		return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{Embeds: []*discordgo.MessageEmbed{modErrorEmbed("Soft Ban", fmt.Sprintf("Unbanned **%s** but could not remove the ban record: %s", name, err))}},
+			Data: &discordgo.InteractionResponseData{Embeds: []*discordgo.MessageEmbed{modErrorEmbed("Soft Ban", msg)}},
 		})
 	}
 	logModAction(h, s, i.GuildID, "SOFTBAN", i.Member.User.ID, i.Member.User.Username, targetID, name, map[string]any{"reason": reason})
@@ -209,6 +237,9 @@ func kickMessageCommandHandler(h *CommandHandler, s *discordgo.Session, m *disco
 	}
 	reason := strings.Join(args[1:], " ")
 	if err := s.GuildMemberDeleteWithReason(m.GuildID, targetID, reason); err != nil {
+		if isForbiddenErr(err) {
+			return sendModError(s, m.ChannelID, "Kick", hierarchyModMessage("kick", "Kick Members"))
+		}
 		return sendModError(s, m.ChannelID, "Kick", fmt.Sprintf("Failed to kick %s: %s", name, err))
 	}
 	logModAction(h, s, m.GuildID, "KICK", m.Author.ID, m.Author.Username, targetID, name, map[string]any{"reason": reason})
@@ -238,9 +269,13 @@ func kickSlashCommandHandler(h *CommandHandler, s *discordgo.Session, i *discord
 		return nil
 	}
 	if err := s.GuildMemberDeleteWithReason(i.GuildID, targetID, reason); err != nil {
+		msg := fmt.Sprintf("Failed to kick %s: %s", name, err)
+		if isForbiddenErr(err) {
+			msg = hierarchyModMessage("kick", "Kick Members")
+		}
 		return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{Embeds: []*discordgo.MessageEmbed{modErrorEmbed("Kick", fmt.Sprintf("Failed to kick %s: %s", name, err))}},
+			Data: &discordgo.InteractionResponseData{Embeds: []*discordgo.MessageEmbed{modErrorEmbed("Kick", msg)}},
 		})
 	}
 	logModAction(h, s, i.GuildID, "KICK", i.Member.User.ID, i.Member.User.Username, targetID, name, map[string]any{"reason": reason})

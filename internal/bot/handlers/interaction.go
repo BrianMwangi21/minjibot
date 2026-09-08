@@ -51,6 +51,18 @@ func onInteractionCreate(s *discordgo.Session, i *discordgo.InteractionCreate, d
 
 	ctx := context.Background()
 
+	// Ensure the guild row exists so slash-command-only servers still appear
+	// in the dashboard guild picker.
+	if i.GuildID != "" {
+		name := ""
+		if g, err := s.Guild(i.GuildID); err == nil {
+			name = g.Name
+		}
+		if err := ensureGuildRecord(ctx, deps.GuildRepo, deps.Logger, i.GuildID, name, 0); err != nil {
+			deps.Logger.Error("Failed to record guild for interaction", "error", err, "guild_id", i.GuildID)
+		}
+	}
+
 	// Command handlers are responsible for their own interaction response.
 	// If a handler returns an error before responding, try a followup; if the
 	// interaction was never acknowledged, fall back to a direct response.
@@ -71,5 +83,11 @@ func onInteractionCreate(s *discordgo.Session, i *discordgo.InteractionCreate, d
 				deps.Logger.Error("Failed to send error response", "error", rerr)
 			}
 		}
+		return
+	}
+
+	// Non-moderation commands count toward the donation card cadence.
+	if !commands.IsModerationCommand(i.ApplicationCommandData().Name) {
+		cmdHandler.MaybeShowDonatePrompt(s, i.ChannelID)
 	}
 }

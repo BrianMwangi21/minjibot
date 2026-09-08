@@ -7,6 +7,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/bwmarrin/discordgo"
+	"github.com/kibetnathan/minjibot/internal/ports/repository"
 )
 
 // CommandRunner is the subset of the bot's command handler the runner needs:
@@ -35,12 +36,14 @@ type Step struct {
 type Runner struct {
 	s        *discordgo.Session
 	commands CommandRunner
+	settings repository.GuildSettingsRepository
 }
 
 // NewRunner builds a runner. commands may be nil, in which case the
-// [[commands]] section is rejected with a clear error.
-func NewRunner(s *discordgo.Session, commands CommandRunner) *Runner {
-	return &Runner{s: s, commands: commands}
+// [[commands]] section is rejected with a clear error. settings may be nil, in
+// which case the [logging] section is rejected with a clear error.
+func NewRunner(s *discordgo.Session, commands CommandRunner, settings repository.GuildSettingsRepository) *Runner {
+	return &Runner{s: s, commands: commands, settings: settings}
 }
 
 // Parse decodes and validates a setup document. Parse errors carry the TOML
@@ -73,6 +76,13 @@ func (r *Runner) Run(ctx context.Context, guildID string, cfg *Config, notify No
 
 	roles := r.runRoles(ctx, guildID, cfg, &steps)
 	channels := r.runChannels(ctx, guildID, cfg, roles, &steps)
+
+	if cfg.Rules != nil {
+		r.runRules(cfg, channels, &steps)
+	}
+	if cfg.Logging != nil {
+		r.runLogging(ctx, guildID, cfg, channels, &steps)
+	}
 
 	if len(cfg.Emojis) > 0 {
 		r.runEmojis(ctx, guildID, cfg, &steps)

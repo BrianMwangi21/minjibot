@@ -12,13 +12,32 @@ import "fmt"
 // Config is the parsed root document for a server setup file.
 type Config struct {
 	Server     ServerConfig      `toml:"server"`
+	Rules      *RulesConfig      `toml:"rules"`
 	Roles      []RoleConfig      `toml:"roles"`
 	Channels   []ChannelConfig   `toml:"channels"`
 	Emojis     []EmojiConfig     `toml:"emojis"`
 	Stickers   []StickerConfig   `toml:"stickers"`
+	Logging    *LoggingConfig    `toml:"logging"`
 	Community  *CommunityConfig  `toml:"community"`
 	Onboarding *OnboardingConfig `toml:"onboarding"`
 	Commands   []CommandConfig   `toml:"commands"`
+}
+
+// RulesConfig posts (and pins) a rules embed into a channel defined by the
+// document.
+type RulesConfig struct {
+	Channel string `toml:"channel"`
+	Title   string `toml:"title"`
+	Color   string `toml:"color"`
+	Message string `toml:"message"`
+}
+
+// LoggingConfig wires the guild's logging settings: the channel mod actions and
+// deleted messages are posted to, and whether message content is stored so
+// deletions can be reconstructed.
+type LoggingConfig struct {
+	Channel         string `toml:"channel"`
+	DeletedMessages bool   `toml:"deleted_messages"`
 }
 
 // ServerConfig renames the server. All fields are optional.
@@ -186,6 +205,29 @@ func (c *Config) validate() error {
 		}
 		if c.Community.ContentFilter != "" && parseContentFilter(c.Community.ContentFilter) == nil {
 			return fmt.Errorf("community: unknown content_filter %q", c.Community.ContentFilter)
+		}
+	}
+
+	if c.Rules != nil {
+		if c.Rules.Channel == "" {
+			return fmt.Errorf("rules: channel is required")
+		}
+		if _, ok := chanNames[c.Rules.Channel]; !ok {
+			return fmt.Errorf("rules: channel %q is not a defined channel", c.Rules.Channel)
+		}
+		if c.Rules.Color != "" {
+			if _, err := parseRoleColor(c.Rules.Color); err != nil {
+				return fmt.Errorf("rules: %w", err)
+			}
+		}
+	}
+
+	if c.Logging != nil {
+		if c.Logging.Channel == "" {
+			return fmt.Errorf("logging: channel is required")
+		}
+		if _, ok := chanNames[c.Logging.Channel]; !ok {
+			return fmt.Errorf("logging: channel %q is not a defined channel", c.Logging.Channel)
 		}
 	}
 

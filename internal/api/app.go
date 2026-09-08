@@ -105,7 +105,7 @@ func NewApp() (*App, error) {
 // after bot.NewApp() succeeds, before or after the API starts.
 func (a *App) AttachBot(s *discordgo.Session, cmds setup.CommandRunner) {
 	a.Session = s
-	a.SetupRunner = setup.NewRunner(s, cmds)
+	a.SetupRunner = setup.NewRunner(s, cmds, repository.NewGuildSettingsRepository(repository.NewSQLStore(postgres.New(a.Pool))))
 }
 
 func (a *App) registerRoutes() {

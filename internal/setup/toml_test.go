@@ -121,6 +121,76 @@ func TestParseBadJsonStyle(t *testing.T) {
 	}
 }
 
+func TestParseRulesAndLogging(t *testing.T) {
+	doc := `
+[[channels]]
+name = "rules"
+
+[[channels]]
+name = "mod-logs"
+
+[rules]
+channel = "rules"
+title = "Server Rules"
+color = "#ff0000"
+message = "Be nice."
+
+[logging]
+channel = "mod-logs"
+deleted_messages = true
+`
+	cfg, err := Parse([]byte(doc))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if cfg.Rules == nil || cfg.Rules.Channel != "rules" || cfg.Rules.Message != "Be nice." {
+		t.Fatalf("rules not parsed: %+v", cfg.Rules)
+	}
+	if cfg.Logging == nil || cfg.Logging.Channel != "mod-logs" || !cfg.Logging.DeletedMessages {
+		t.Fatalf("logging not parsed: %+v", cfg.Logging)
+	}
+}
+
+func TestParseRulesBadChannel(t *testing.T) {
+	doc := `
+[[channels]]
+name = "general"
+
+[rules]
+channel = "rules"
+`
+	if _, err := Parse([]byte(doc)); err == nil || !strings.Contains(err.Error(), `rules: channel "rules"`) {
+		t.Fatalf("expected undefined rules channel error, got %v", err)
+	}
+}
+
+func TestParseLoggingBadChannel(t *testing.T) {
+	doc := `
+[[channels]]
+name = "general"
+
+[logging]
+channel = "mod-logs"
+`
+	if _, err := Parse([]byte(doc)); err == nil || !strings.Contains(err.Error(), `logging: channel "mod-logs"`) {
+		t.Fatalf("expected undefined logging channel error, got %v", err)
+	}
+}
+
+func TestParseRulesBadColor(t *testing.T) {
+	doc := `
+[[channels]]
+name = "rules"
+
+[rules]
+channel = "rules"
+color = "not-a-color"
+`
+	if _, err := Parse([]byte(doc)); err == nil || !strings.Contains(err.Error(), "rules:") {
+		t.Fatalf("expected rules color error, got %v", err)
+	}
+}
+
 func TestExpander(t *testing.T) {
 	got := expandRefs("{role:Member} and {channel:general}", map[string]string{"Member": "r1"}, map[string]string{"general": "c1"})
 	if !strings.Contains(got, "<@&r1>") || !strings.Contains(got, "<#c1>") {

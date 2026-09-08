@@ -83,5 +83,11 @@ func onInteractionCreate(s *discordgo.Session, i *discordgo.InteractionCreate, d
 				deps.Logger.Error("Failed to send error response", "error", rerr)
 			}
 		}
+		return
+	}
+
+	// Non-moderation commands count toward the donation card cadence.
+	if !commands.IsModerationCommand(i.ApplicationCommandData().Name) {
+		cmdHandler.MaybeShowDonatePrompt(s, i.ChannelID)
 	}
 }

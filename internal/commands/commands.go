@@ -7,6 +7,7 @@ package commands
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/kibetnathan/minjibot/internal/config"
@@ -22,6 +23,13 @@ type CommandHandler struct {
 	BirthdayRepo repository.BirthdayRepository
 	BirthdaySett repository.GuildBirthdaySettingsRepository
 	DiaryRepo    repository.DiaryRepository
+
+	// donateMu serializes the donation prompt cadence: every 13-15
+	// non-moderation commands a DonatePrompt surfaces. Not a mod action, but
+	// guarded since gateway handlers run concurrently.
+	donateMu     sync.Mutex
+	donateCount  int
+	donateTarget int
 }
 
 func NewCommandHandler(cfg *config.Config, guildRepo repository.GuildRepository, settingsRepo repository.GuildSettingsRepository, permRepo repository.UserPermissionRepository, auditRepo repository.AuditLogRepository, birthdayRepo repository.BirthdayRepository, birthdaySett repository.GuildBirthdaySettingsRepository, diaryRepo repository.DiaryRepository) *CommandHandler {

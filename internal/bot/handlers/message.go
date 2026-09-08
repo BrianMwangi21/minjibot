@@ -249,6 +249,12 @@ func dispatchCommand(
 
 	if err := cmdHandler.Handle(ctx, s, m, args[0], args[1:]); err != nil {
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Error: %v", err))
+		return
+	}
+
+	// Non-moderation commands count toward the donation card cadence.
+	if !commands.IsModerationCommand(args[0]) {
+		cmdHandler.MaybeShowDonatePrompt(s, m.ChannelID)
 	}
 }
 
